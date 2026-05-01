@@ -1,0 +1,14 @@
+# MASM / VS build outputs
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.map
+*.lst
+*.log
+
+# VS
+.vs/
+
+# VS Code
+.vscode/

@@ -1,0 +1,6 @@
+# sample.shl - AXS script example
+
+echo Starting backup...
+mkdir C:\backup
+copy *.txt C:\backup
+echo Done!
