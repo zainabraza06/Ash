@@ -1,16 +1,16 @@
-; builtins.asm - built-in commands (cd/dir/type/...)
-; Implements a small subset; the rest are structured stubs.
+; builtins.asm - built-in commands for AXS
 
 .386
 .model flat, stdcall
 option casemap:none
 
 INCLUDE Irvine32.inc
-INCLUDE ..\include\axs.inc
+INCLUDE axs.inc
 
 INCLUDELIB kernel32.lib
 
 EXTERN gShouldExit:DWORD
+EXTERN gLastExitCode:DWORD
 
 .data
 sExit     BYTE "exit",0
@@ -20,7 +20,6 @@ sEcho     BYTE "echo",0
 sCd       BYTE "cd",0
 sSet      BYTE "set",0
 sRun      BYTE "run",0
-
 sDir      BYTE "dir",0
 sType     BYTE "type",0
 sCopy     BYTE "copy",0
@@ -29,35 +28,287 @@ sMkdir    BYTE "mkdir",0
 sRmdir    BYTE "rmdir",0
 sRen      BYTE "ren",0
 
-msgNI     BYTE "(not implemented yet)",0Dh,0Ah,0
-msgUnknown BYTE "Unknown built-in command.",0Dh,0Ah,0
-
-helpText BYTE \
-"Built-in Commands:",0Dh,0Ah,
-"  cd [dir]        - Change directory",0Dh,0Ah,
-"  dir [path]      - List directory contents",0Dh,0Ah,
-"  type <file>     - Display file contents",0Dh,0Ah,
-"  copy <s> <d>    - Copy file",0Dh,0Ah,
-"  del <file>      - Delete file",0Dh,0Ah,
-"  mkdir <name>    - Create directory",0Dh,0Ah,
-"  rmdir <name>    - Remove directory",0Dh,0Ah,
-"  ren <o> <n>     - Rename file",0Dh,0Ah,
-"  echo [text]     - Display text",0Dh,0Ah,
-"  set [VAR=val]   - Show/set environment variables",0Dh,0Ah,
-"  cls             - Clear screen",0Dh,0Ah,
-"  exit            - Exit shell",0Dh,0Ah,0
+helpText BYTE "Built-in Commands:",0Dh,0Ah
+         BYTE "  cd [dir]           - Change directory",0Dh,0Ah
+         BYTE "  dir [pattern]      - List directory contents (default *.*)",0Dh,0Ah
+         BYTE "  type <file>        - Display file contents",0Dh,0Ah
+         BYTE "  copy <src> <dest>  - Copy file",0Dh,0Ah
+         BYTE "  del <file>         - Delete file",0Dh,0Ah
+         BYTE "  mkdir <dir>        - Create directory",0Dh,0Ah
+         BYTE "  rmdir <dir>        - Remove directory",0Dh,0Ah
+         BYTE "  ren <old> <new>    - Rename/move file",0Dh,0Ah
+         BYTE "  echo [text]        - Display text",0Dh,0Ah
+         BYTE "  set [VAR=val]      - Show/set environment variables",0Dh,0Ah
+         BYTE "  run <script.shl>   - Run script file",0Dh,0Ah
+         BYTE "  cls                - Clear screen",0Dh,0Ah
+         BYTE "  exit               - Exit shell",0Dh,0Ah
+         BYTE 0
 
 cdBuf BYTE 260 DUP(0)
-cdErr BYTE "cd: failed to change directory",0Dh,0Ah,0
+msgErr BYTE "Error.",0Dh,0Ah,0
 
-runUsage BYTE "Usage: run <script.shl>",0Dh,0Ah,0
-setUsage BYTE "Usage: set NAME=VALUE   (or: set)",0Dh,0Ah,0
+usageType  BYTE "Usage: type <file>",0Dh,0Ah,0
+usageCopy  BYTE "Usage: copy <src> <dest>",0Dh,0Ah,0
+usageDel   BYTE "Usage: del <file>",0Dh,0Ah,0
+usageMkdir BYTE "Usage: mkdir <dir>",0Dh,0Ah,0
+usageRmdir BYTE "Usage: rmdir <dir>",0Dh,0Ah,0
+usageRen   BYTE "Usage: ren <old> <new>",0Dh,0Ah,0
+usageRun   BYTE "Usage: run <script.shl>",0Dh,0Ah,0
+usageSet   BYTE "Usage: set NAME=VALUE   (or: set)",0Dh,0Ah,0
+
+okMsg BYTE "OK",0Dh,0Ah,0
+
+; buffers for type
+TypeBuf BYTE 4096 DUP(0)
+
+starPattern BYTE "*.*",0
 
 .code
 
 Builtins_Init PROC
     ret
 Builtins_Init ENDP
+
+Builtin_SetExitCode PROC, code:DWORD
+    mov eax, code
+    mov gLastExitCode, eax
+    ret
+Builtin_SetExitCode ENDP
+
+Builtin_Dir PROC USES ebx ecx edx, pCmd:PTR COMMAND
+    LOCAL fd:WIN32_FIND_DATAA
+    LOCAL hFind:DWORD
+
+    mov ebx, pCmd
+
+    mov edx, [ebx].COMMAND.argv[4] ; argv[1] if present
+    mov eax, [ebx].COMMAND.argc
+    cmp eax, 2
+    jae have
+
+    ; default pattern
+    mov edx, OFFSET starPattern
+have:
+    INVOKE FindFirstFileA, edx, ADDR fd
+    mov hFind, eax
+    cmp eax, INVALID_HANDLE_VALUE
+    jne dir_loop
+
+    INVOKE Builtin_SetExitCode, 1
+    mov edx, OFFSET msgErr
+    call WriteString
+    ret
+
+dir_loop:
+    lea edx, fd.cFileName
+    call WriteString
+    call Crlf
+
+    INVOKE FindNextFileA, hFind, ADDR fd
+    cmp eax, 0
+    jne dir_loop
+
+    INVOKE FindClose, hFind
+    INVOKE Builtin_SetExitCode, 0
+    ret
+Builtin_Dir ENDP
+
+Builtin_Type PROC USES ebx ecx edx, pCmd:PTR COMMAND
+    LOCAL hFile:DWORD
+    LOCAL bytesRead:DWORD
+    LOCAL bytesWritten:DWORD
+    LOCAL hOut:DWORD
+
+    mov ebx, pCmd
+    mov eax, [ebx].COMMAND.argc
+    cmp eax, 2
+    jae ok
+
+    mov edx, OFFSET usageType
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+ok:
+    mov edx, [ebx].COMMAND.argv[4]
+    INVOKE CreateFileA, edx, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
+    mov hFile, eax
+    cmp eax, INVALID_HANDLE_VALUE
+    jne read_loop
+
+    mov edx, OFFSET msgErr
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+read_loop:
+    INVOKE GetStdHandle, STD_OUTPUT_HANDLE
+    mov hOut, eax
+
+    INVOKE ReadFile, hFile, ADDR TypeBuf, SIZEOF TypeBuf, ADDR bytesRead, NULL
+    cmp eax, 0
+    je  close
+
+    mov eax, bytesRead
+    cmp eax, 0
+    je  close
+
+    INVOKE WriteFile, hOut, ADDR TypeBuf, bytesRead, ADDR bytesWritten, NULL
+    jmp read_loop
+
+close:
+    INVOKE CloseHandle, hFile
+    call Crlf
+    INVOKE Builtin_SetExitCode, 0
+    ret
+Builtin_Type ENDP
+
+Builtin_Copy PROC USES ebx ecx edx, pCmd:PTR COMMAND
+    mov ebx, pCmd
+    mov eax, [ebx].COMMAND.argc
+    cmp eax, 3
+    jae ok
+
+    mov edx, OFFSET usageCopy
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+ok:
+    mov edx, [ebx].COMMAND.argv[4]
+    mov ecx, [ebx].COMMAND.argv[8]
+    INVOKE CopyFileA, edx, ecx, FALSE
+    cmp eax, 0
+    jne good
+
+    mov edx, OFFSET msgErr
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+good:
+    mov edx, OFFSET okMsg
+    call WriteString
+    INVOKE Builtin_SetExitCode, 0
+    ret
+Builtin_Copy ENDP
+
+Builtin_Del PROC USES ebx edx, pCmd:PTR COMMAND
+    mov ebx, pCmd
+    mov eax, [ebx].COMMAND.argc
+    cmp eax, 2
+    jae ok
+
+    mov edx, OFFSET usageDel
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+ok:
+    mov edx, [ebx].COMMAND.argv[4]
+    INVOKE DeleteFileA, edx
+    cmp eax, 0
+    jne good
+
+    mov edx, OFFSET msgErr
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+good:
+    mov edx, OFFSET okMsg
+    call WriteString
+    INVOKE Builtin_SetExitCode, 0
+    ret
+Builtin_Del ENDP
+
+Builtin_Mkdir PROC USES ebx edx, pCmd:PTR COMMAND
+    mov ebx, pCmd
+    mov eax, [ebx].COMMAND.argc
+    cmp eax, 2
+    jae ok
+
+    mov edx, OFFSET usageMkdir
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+ok:
+    mov edx, [ebx].COMMAND.argv[4]
+    INVOKE CreateDirectoryA, edx, NULL
+    cmp eax, 0
+    jne good
+
+    mov edx, OFFSET msgErr
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+good:
+    mov edx, OFFSET okMsg
+    call WriteString
+    INVOKE Builtin_SetExitCode, 0
+    ret
+Builtin_Mkdir ENDP
+
+Builtin_Rmdir PROC USES ebx edx, pCmd:PTR COMMAND
+    mov ebx, pCmd
+    mov eax, [ebx].COMMAND.argc
+    cmp eax, 2
+    jae ok
+
+    mov edx, OFFSET usageRmdir
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+ok:
+    mov edx, [ebx].COMMAND.argv[4]
+    INVOKE RemoveDirectoryA, edx
+    cmp eax, 0
+    jne good
+
+    mov edx, OFFSET msgErr
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+good:
+    mov edx, OFFSET okMsg
+    call WriteString
+    INVOKE Builtin_SetExitCode, 0
+    ret
+Builtin_Rmdir ENDP
+
+Builtin_Ren PROC USES ebx ecx edx, pCmd:PTR COMMAND
+    mov ebx, pCmd
+    mov eax, [ebx].COMMAND.argc
+    cmp eax, 3
+    jae ok
+
+    mov edx, OFFSET usageRen
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+ok:
+    mov edx, [ebx].COMMAND.argv[4]
+    mov ecx, [ebx].COMMAND.argv[8]
+    INVOKE MoveFileA, edx, ecx
+    cmp eax, 0
+    jne good
+
+    mov edx, OFFSET msgErr
+    call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+good:
+    mov edx, OFFSET okMsg
+    call WriteString
+    INVOKE Builtin_SetExitCode, 0
+    ret
+Builtin_Ren ENDP
 
 ; Returns EAX=1 if handled, else EAX=0.
 Builtins_TryExecute PROC USES esi edi ebx, pCmd:PTR COMMAND
@@ -74,6 +325,7 @@ Builtins_TryExecute PROC USES esi edi ebx, pCmd:PTR COMMAND
     cmp eax, 1
     jne check_help
     mov gShouldExit, 1
+    INVOKE Builtin_SetExitCode, 0
     mov eax, 1
     ret
 
@@ -83,6 +335,7 @@ check_help:
     jne check_cls
     mov edx, OFFSET helpText
     call WriteString
+    INVOKE Builtin_SetExitCode, 0
     mov eax, 1
     ret
 
@@ -90,7 +343,8 @@ check_cls:
     INVOKE StrEqI, esi, ADDR sCls
     cmp eax, 1
     jne check_echo
-    call Clrscr
+    call ClrScr
+    INVOKE Builtin_SetExitCode, 0
     mov eax, 1
     ret
 
@@ -99,7 +353,6 @@ check_echo:
     cmp eax, 1
     jne check_cd
 
-    ; echo args...
     mov ebx, 1
     mov ecx, [edi].COMMAND.argc
     cmp ecx, 1
@@ -117,6 +370,7 @@ echo_loop:
 
 echo_done:
     call Crlf
+    INVOKE Builtin_SetExitCode, 0
     mov eax, 1
     ret
 
@@ -129,14 +383,18 @@ check_cd:
     cmp eax, 1
     jbe cd_print
 
-    ; cd <dir>
-    mov edx, [edi].COMMAND.argv[4]     ; argv[1]
+    mov edx, [edi].COMMAND.argv[4]
     INVOKE SetCurrentDirectoryA, edx
     cmp eax, 0
     jne cd_ok
-    mov edx, OFFSET cdErr
+    mov edx, OFFSET msgErr
     call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    mov eax, 1
+    ret
+
 cd_ok:
+    INVOKE Builtin_SetExitCode, 0
     mov eax, 1
     ret
 
@@ -145,6 +403,7 @@ cd_print:
     mov edx, OFFSET cdBuf
     call WriteString
     call Crlf
+    INVOKE Builtin_SetExitCode, 0
     mov eax, 1
     ret
 
@@ -157,102 +416,109 @@ check_set:
     cmp eax, 1
     je  do_set_print
 
-    ; set NAME=VALUE
     INVOKE Env_SetFromCommand, edi
     cmp eax, 1
     je  set_ok
-    mov edx, OFFSET setUsage
+    cmp eax, 2
+    je  set_fail
+    mov edx, OFFSET usageSet
     call WriteString
+    INVOKE Builtin_SetExitCode, 1
+    mov eax, 1
+    ret
+
 set_ok:
+    ; Env_SetFromCommand prints OK/Fail and sets env; treat success as exitcode 0
+    INVOKE Builtin_SetExitCode, 0
+    mov eax, 1
+    ret
+
+set_fail:
+    INVOKE Builtin_SetExitCode, 1
     mov eax, 1
     ret
 
 do_set_print:
     call Env_PrintAll
+    INVOKE Builtin_SetExitCode, 0
     mov eax, 1
     ret
 
 check_run:
     INVOKE StrEqI, esi, ADDR sRun
     cmp eax, 1
-    jne check_other
+    jne check_dir
 
     mov eax, [edi].COMMAND.argc
     cmp eax, 2
-    jb  run_usage
+    jae run_ok
 
-    mov edx, [edi].COMMAND.argv[4]     ; argv[1]
-    INVOKE Script_RunFile, edx
-    mov eax, 1
-    ret
-
-run_usage:
-    mov edx, OFFSET runUsage
+    mov edx, OFFSET usageRun
     call WriteString
+    INVOKE Builtin_SetExitCode, 1
     mov eax, 1
     ret
 
-check_other:
-    ; Remaining built-ins are structured stubs for the team to implement.
+run_ok:
+    mov edx, [edi].COMMAND.argv[4]
+    INVOKE Script_RunFile, edx
+    ; Script execution uses gLastExitCode from invoked commands
+    mov eax, 1
+    ret
+
+check_dir:
     INVOKE StrEqI, esi, ADDR sDir
     cmp eax, 1
-    jne chk_type
-    mov edx, OFFSET msgNI
-    call WriteString
+    jne check_type
+    INVOKE Builtin_Dir, edi
     mov eax, 1
     ret
 
-chk_type:
+check_type:
     INVOKE StrEqI, esi, ADDR sType
     cmp eax, 1
-    jne chk_copy
-    mov edx, OFFSET msgNI
-    call WriteString
+    jne check_copy
+    INVOKE Builtin_Type, edi
     mov eax, 1
     ret
 
-chk_copy:
+check_copy:
     INVOKE StrEqI, esi, ADDR sCopy
     cmp eax, 1
-    jne chk_del
-    mov edx, OFFSET msgNI
-    call WriteString
+    jne check_del
+    INVOKE Builtin_Copy, edi
     mov eax, 1
     ret
 
-chk_del:
+check_del:
     INVOKE StrEqI, esi, ADDR sDel
     cmp eax, 1
-    jne chk_mkdir
-    mov edx, OFFSET msgNI
-    call WriteString
+    jne check_mkdir
+    INVOKE Builtin_Del, edi
     mov eax, 1
     ret
 
-chk_mkdir:
+check_mkdir:
     INVOKE StrEqI, esi, ADDR sMkdir
     cmp eax, 1
-    jne chk_rmdir
-    mov edx, OFFSET msgNI
-    call WriteString
+    jne check_rmdir
+    INVOKE Builtin_Mkdir, edi
     mov eax, 1
     ret
 
-chk_rmdir:
+check_rmdir:
     INVOKE StrEqI, esi, ADDR sRmdir
     cmp eax, 1
-    jne chk_ren
-    mov edx, OFFSET msgNI
-    call WriteString
+    jne check_ren
+    INVOKE Builtin_Rmdir, edi
     mov eax, 1
     ret
 
-chk_ren:
+check_ren:
     INVOKE StrEqI, esi, ADDR sRen
     cmp eax, 1
     jne not_handled
-    mov edx, OFFSET msgNI
-    call WriteString
+    INVOKE Builtin_Ren, edi
     mov eax, 1
     ret
 
@@ -260,5 +526,65 @@ not_handled:
     xor eax, eax
     ret
 Builtins_TryExecute ENDP
+
+; Builtins_IsBuiltin(pCmd) -> EAX=1 if argv[0] matches a built-in name
+Builtins_IsBuiltin PROC USES esi edi, pCmd:PTR COMMAND
+    mov edi, pCmd
+    mov eax, [edi].COMMAND.argc
+    cmp eax, 0
+    je  no
+
+    mov esi, [edi].COMMAND.argv[0]
+
+    INVOKE StrEqI, esi, ADDR sExit
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sHelp
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sCls
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sEcho
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sCd
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sSet
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sRun
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sDir
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sType
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sCopy
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sDel
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sMkdir
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sRmdir
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sRen
+    cmp eax, 1
+    je  yes
+
+no:
+    xor eax, eax
+    ret
+yes:
+    mov eax, 1
+    ret
+Builtins_IsBuiltin ENDP
 
 END

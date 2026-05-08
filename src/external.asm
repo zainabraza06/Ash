@@ -5,7 +5,7 @@
 option casemap:none
 
 INCLUDE Irvine32.inc
-INCLUDE ..\include\axs.inc
+INCLUDE axs.inc
 
 INCLUDELIB kernel32.lib
 
@@ -25,6 +25,8 @@ External_Execute PROC USES esi edi ebx ecx edx, pCmd:PTR COMMAND
     LOCAL startupInfo:STARTUPINFOA
     LOCAL procInfo:PROCESS_INFORMATION
     LOCAL exitCode:DWORD
+
+    mov exitCode, 0
 
     mov edi, pCmd
     mov eax, [edi].COMMAND.argc
@@ -105,9 +107,11 @@ zero_pi:
     mov edx, OFFSET msgLaunchFail
     call WriteString
     call GetLastError
+    mov exitCode, eax
     call WriteHex
     call Crlf
-    jmp done
+    mov eax, exitCode
+    ret
 
 launched:
     ; wait and close handles
@@ -118,6 +122,7 @@ launched:
     INVOKE CloseHandle, procInfo.hProcess
 
 done:
+    mov eax, exitCode
     ret
 External_Execute ENDP
 

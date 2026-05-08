@@ -38,6 +38,7 @@ Parser_ParseLine    PROTO, pLine:PTR BYTE, pCmd:PTR COMMAND
 ; builtins.asm
 Builtins_Init       PROTO
 Builtins_TryExecute PROTO, pCmd:PTR COMMAND
+Builtins_IsBuiltin  PROTO, pCmd:PTR COMMAND
 
 ; external.asm
 External_Init       PROTO
@@ -56,13 +57,29 @@ Env_PrintAll        PROTO
 ; history.asm
 History_Init        PROTO
 History_Add         PROTO, pLine:PTR BYTE
-History_HandleKey   PROTO
+History_Prev        PROTO, pOutBuf:PTR BYTE
+History_Next        PROTO, pOutBuf:PTR BYTE
 
 ; script.asm
 Script_Init         PROTO
 Script_RunFile      PROTO, pFile:PTR BYTE
 
+; console.asm
+Console_Init        PROTO
+Console_ReadLine    PROTO, pBuf:PTR BYTE, cbBuf:DWORD
+
+; dispatch.asm
+Shell_ExecuteLine   PROTO, pLine:PTR BYTE
+
 ; --- Shared globals (defined in main.asm) ---
-EXTERN gLineBuf:BYTE
-EXTERN gCmd:COMMAND
-EXTERN gShouldExit:DWORD
+IFDEF AXS_MAIN
+  PUBLIC gLineBuf
+  PUBLIC gCmd
+  PUBLIC gShouldExit
+  PUBLIC gLastExitCode
+ELSE
+  EXTERN gLineBuf:BYTE
+  EXTERN gCmd:COMMAND
+  EXTERN gShouldExit:DWORD
+  EXTERN gLastExitCode:DWORD
+ENDIF

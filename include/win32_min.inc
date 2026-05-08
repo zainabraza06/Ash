@@ -18,12 +18,20 @@ FILE_SHARE_WRITE            EQU 00000002h
 OPEN_EXISTING               EQU 3
 CREATE_ALWAYS               EQU 2
 FILE_ATTRIBUTE_NORMAL       EQU 00000080h
+FILE_ATTRIBUTE_DIRECTORY    EQU 00000010h
+
+INVALID_HANDLE_VALUE        EQU 0FFFFFFFFh
 
 STD_INPUT_HANDLE            EQU -10
 STD_OUTPUT_HANDLE           EQU -11
 STD_ERROR_HANDLE            EQU -12
 
 INFINITE                   EQU 0FFFFFFFFh
+
+; For SetFilePointer
+FILE_BEGIN                  EQU 0
+FILE_CURRENT                EQU 1
+FILE_END                    EQU 2
 
 ; --- Structs ---
 SECURITY_ATTRIBUTES STRUCT
@@ -60,15 +68,31 @@ STARTUPINFOA STRUCT
   hStdError       DWORD ?
 STARTUPINFOA ENDS
 
+WIN32_FIND_DATAA STRUCT
+  dwFileAttributes DWORD ?
+  ftCreationTime   QWORD ?
+  ftLastAccessTime QWORD ?
+  ftLastWriteTime  QWORD ?
+  nFileSizeHigh    DWORD ?
+  nFileSizeLow     DWORD ?
+  dwReserved0      DWORD ?
+  dwReserved1      DWORD ?
+  cFileName        BYTE 260 DUP(?)
+  cAlternateFileName BYTE 14 DUP(?)
+WIN32_FIND_DATAA ENDS
+
 ; --- Win32 API prototypes (stdcall) ---
 
 GetLastError PROTO STDCALL
 CloseHandle  PROTO STDCALL, hObject:DWORD
 
-GetCurrentDirectoryA PROTO STDCALL, nBufferLength:DWORD, lpBuffer:PTR BYTE
-SetCurrentDirectoryA PROTO STDCALL, lpPathName:PTR BYTE
+GetEnvironmentStringsA PROTO STDCALL
+FreeEnvironmentStringsA PROTO, lpszEnvironmentBlock:PTR BYTE
 
-CreateProcessA PROTO STDCALL,
+GetCurrentDirectoryA PROTO, nBufferLength:DWORD, lpBuffer:PTR BYTE
+SetCurrentDirectoryA PROTO, lpPathName:PTR BYTE
+
+CreateProcessA PROTO,
   lpApplicationName:DWORD,
   lpCommandLine:PTR BYTE,
   lpProcessAttributes:DWORD,
@@ -80,16 +104,16 @@ CreateProcessA PROTO STDCALL,
   lpStartupInfo:PTR STARTUPINFOA,
   lpProcessInformation:PTR PROCESS_INFORMATION
 
-WaitForSingleObject PROTO STDCALL, hHandle:DWORD, dwMilliseconds:DWORD
-GetExitCodeProcess  PROTO STDCALL, hProcess:DWORD, lpExitCode:PTR DWORD
+WaitForSingleObject PROTO, hHandle:DWORD, dwMilliseconds:DWORD
+GetExitCodeProcess  PROTO, hProcess:DWORD, lpExitCode:PTR DWORD
 
-CreatePipe PROTO STDCALL, phReadPipe:PTR DWORD, phWritePipe:PTR DWORD, lpPipeAttributes:PTR SECURITY_ATTRIBUTES, nSize:DWORD
-SetHandleInformation PROTO STDCALL, hObject:DWORD, dwMask:DWORD, dwFlags:DWORD
+CreatePipe PROTO, phReadPipe:PTR DWORD, phWritePipe:PTR DWORD, lpPipeAttributes:PTR SECURITY_ATTRIBUTES, nSize:DWORD
+SetHandleInformation PROTO, hObject:DWORD, dwMask:DWORD, dwFlags:DWORD
 
-GetEnvironmentVariableA PROTO STDCALL, lpName:PTR BYTE, lpBuffer:PTR BYTE, nSize:DWORD
-SetEnvironmentVariableA PROTO STDCALL, lpName:PTR BYTE, lpValue:PTR BYTE
+GetEnvironmentVariableA PROTO, lpName:PTR BYTE, lpBuffer:PTR BYTE, nSize:DWORD
+SetEnvironmentVariableA PROTO, lpName:PTR BYTE, lpValue:PTR BYTE
 
-CreateFileA PROTO STDCALL,
+CreateFileA PROTO,
   lpFileName:PTR BYTE,
   dwDesiredAccess:DWORD,
   dwShareMode:DWORD,
@@ -98,8 +122,15 @@ CreateFileA PROTO STDCALL,
   dwFlagsAndAttributes:DWORD,
   hTemplateFile:DWORD
 
-ReadFile PROTO STDCALL, hFile:DWORD, lpBuffer:PTR BYTE, nNumberOfBytesToRead:DWORD, lpNumberOfBytesRead:PTR DWORD, lpOverlapped:DWORD
-WriteFile PROTO STDCALL, hFile:DWORD, lpBuffer:PTR BYTE, nNumberOfBytesToWrite:DWORD, lpNumberOfBytesWritten:PTR DWORD, lpOverlapped:DWORD
+DeleteFileA PROTO, lpFileName:PTR BYTE
+CopyFileA   PROTO, lpExisting:PTR BYTE, lpNew:PTR BYTE, bFailIfExists:DWORD
+MoveFileA   PROTO, lpExisting:PTR BYTE, lpNew:PTR BYTE
+CreateDirectoryA PROTO, lpPathName:PTR BYTE, lpSecurityAttributes:DWORD
+RemoveDirectoryA PROTO, lpPathName:PTR BYTE
 
-GetStdHandle PROTO STDCALL, nStdHandle:DWORD
-SetStdHandle PROTO STDCALL, nStdHandle:DWORD, hHandle:DWORD
+FindFirstFileA PROTO, lpFileName:PTR BYTE, lpFindFileData:PTR WIN32_FIND_DATAA
+FindNextFileA  PROTO, hFindFile:DWORD, lpFindFileData:PTR WIN32_FIND_DATAA
+FindClose      PROTO, hFindFile:DWORD
+
+GetStdHandle PROTO, nStdHandle:DWORD
+SetStdHandle PROTO, nStdHandle:DWORD, hHandle:DWORD

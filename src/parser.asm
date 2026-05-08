@@ -5,7 +5,7 @@
 option casemap:none
 
 INCLUDE Irvine32.inc
-INCLUDE ..\include\axs.inc
+INCLUDE axs.inc
 
 .code
 

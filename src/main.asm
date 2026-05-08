@@ -6,7 +6,8 @@
 option casemap:none
 
 INCLUDE Irvine32.inc
-INCLUDE ..\include\axs.inc
+AXS_MAIN EQU 1
+INCLUDE axs.inc
 
 INCLUDELIB kernel32.lib
 
@@ -16,6 +17,7 @@ gLineBuf        BYTE MAX_LINE DUP(0)
 gCmd            COMMAND <>
 
 gShouldExit     DWORD 0
+gLastExitCode   DWORD 0
 
 gBanner1        BYTE "========================================",0Dh,0Ah,0
 gBanner2        BYTE "    AXS Shell v0.1 - Advanced x86 Shell",0Dh,0Ah,0
@@ -35,6 +37,7 @@ main PROC
     call Env_Init
     call History_Init
     call Script_Init
+    call Console_Init
 
     mov  edx, OFFSET gBanner1
     call WriteString
@@ -57,9 +60,7 @@ repl_loop:
     call WriteString
 
     ; Read line
-    mov  edx, OFFSET gLineBuf
-    mov  ecx, MAX_LINE
-    call ReadString          ; EAX = length
+    INVOKE Console_ReadLine, ADDR gLineBuf, MAX_LINE
 
     cmp  eax, 0
     je   repl_loop
@@ -68,24 +69,8 @@ repl_loop:
     mov  edx, OFFSET gLineBuf
     INVOKE History_Add, edx
 
-    ; Expand %VAR% (stub for now)
-    INVOKE Env_ExpandPercentVars, ADDR gLineBuf, MAX_LINE
-
-    ; Advanced: pipeline/redirection handler can short-circuit
-    INVOKE Pipeline_TryExecute, ADDR gLineBuf
-    cmp  eax, 1
-    je   repl_loop
-
-    ; Parse into argv/argc
-    INVOKE Parser_ParseLine, ADDR gLineBuf, ADDR gCmd
-
-    ; Try built-ins
-    INVOKE Builtins_TryExecute, ADDR gCmd
-    cmp  eax, 1
-    je   repl_loop
-
-    ; Otherwise run external command (stub)
-    INVOKE External_Execute, ADDR gCmd
+    ; Execute line (handles env expansion, pipelines, built-ins, external)
+    INVOKE Shell_ExecuteLine, ADDR gLineBuf
     jmp  repl_loop
 
 repl_exit:

@@ -5,7 +5,7 @@
 option casemap:none
 
 INCLUDE Irvine32.inc
-INCLUDE ..\include\axs.inc
+INCLUDE axs.inc
 
 .code
 
@@ -87,13 +87,13 @@ StrEqI PROC USES esi edi, pA:PTR BYTE, pB:PTR BYTE
     jne not_eq
 
     cmp al, 0
-    je  eq
+    je  is_eq
 
     inc esi
     inc edi
     jmp @B
 
-eq:
+is_eq:
     mov eax, 1
     ret
 not_eq:
