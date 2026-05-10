@@ -5,7 +5,7 @@
 option casemap:none
 
 INCLUDE Irvine32.inc
-INCLUDE axs.inc
+INCLUDE ash.inc
 
 .data
 ; Simple circular buffer: HISTORY_SIZE slots, each MAX_LINE bytes

@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 REM Always run from repo root (so relative paths like src\... resolve)
 pushd "%~dp0.." >nul
 
-REM Build script for AXS (32-bit MASM + Irvine32)
+REM Build script for Ash (32-bit MASM + Irvine32)
 REM Recommended: run from a "Developer Command Prompt for VS".
 
 REM --- Ensure assembler is discoverable ---
@@ -17,9 +17,9 @@ if errorlevel 1 (
 
 where ml >nul 2>nul
 if errorlevel 1 (
-  echo [AXS] ERROR: ml.exe not found.
-  echo [AXS] - Open "Developer Command Prompt for VS", OR
-  echo [AXS] - Install MASM and ensure ml.exe is on PATH.
+  echo [Ash] ERROR: ml.exe not found.
+  echo [Ash] - Open "Developer Command Prompt for VS", OR
+  echo [Ash] - Install MASM and ensure ml.exe is on PATH.
   exit /b 1
 )
 
@@ -48,21 +48,21 @@ if not exist "%IRVINE_LIB%\Irvine32.lib" (
 )
 
 if not exist "%IRVINE_INC%\Irvine32.inc" (
-  echo [AXS] ERROR: Irvine32.inc not found.
-  echo [AXS] IRVINE is "%IRVINE%"
-  echo [AXS] Looked for:
-  echo [AXS] - "%IRVINE%\Irvine32.inc"
-  echo [AXS] - "%IRVINE%\INCLUDE\Irvine32.inc"
-  echo [AXS] Fix: set IRVINE to the parent folder that contains Irvine32.inc
+  echo [Ash] ERROR: Irvine32.inc not found.
+  echo [Ash] IRVINE is "%IRVINE%"
+  echo [Ash] Looked for:
+  echo [Ash] - "%IRVINE%\Irvine32.inc"
+  echo [Ash] - "%IRVINE%\INCLUDE\Irvine32.inc"
+  echo [Ash] Fix: set IRVINE to the parent folder that contains Irvine32.inc
   exit /b 1
 )
 
 if not exist "%IRVINE_LIB%\Irvine32.lib" (
-  echo [AXS] ERROR: Irvine32.lib not found.
-  echo [AXS] IRVINE is "%IRVINE%"
-  echo [AXS] Looked for:
-  echo [AXS] - "%IRVINE%\Irvine32.lib"
-  echo [AXS] - "%IRVINE%\LIB\Irvine32.lib"
+  echo [Ash] ERROR: Irvine32.lib not found.
+  echo [Ash] IRVINE is "%IRVINE%"
+  echo [Ash] Looked for:
+  echo [Ash] - "%IRVINE%\Irvine32.lib"
+  echo [Ash] - "%IRVINE%\LIB\Irvine32.lib"
   exit /b 1
 )
 
@@ -99,19 +99,19 @@ if not defined LINKPATH goto no_link
 goto have_link
 
 :no_link
-echo [AXS] ERROR: link.exe not found (MSVC linker required).
-echo [AXS] Fix: Install "Visual Studio Build Tools" with:
-echo [AXS]   - Workload: Desktop development with C++
-echo [AXS]   - Component: MSVC v143 (or similar) x86/x64 tools
-echo [AXS]   - Windows 10/11 SDK
-echo [AXS] Then open "x86 Native Tools Command Prompt for VS" and run build\build.bat
+echo [Ash] ERROR: link.exe not found (MSVC linker required).
+echo [Ash] Fix: Install "Visual Studio Build Tools" with:
+echo [Ash]   - Workload: Desktop development with C++
+echo [Ash]   - Component: MSVC v143 (or similar) x86/x64 tools
+echo [Ash]   - Windows 10/11 SDK
+echo [Ash] Then open "x86 Native Tools Command Prompt for VS" and run build\build.bat
 exit /b 1
 
 :have_link
 
-set "OUT=axs.exe"
+set "OUT=ash.exe"
 
-echo [AXS] Assembling...
+echo [Ash] Assembling...
 ml /nologo /c /coff /Zi /W3 /I "%IRVINE_INC%" /I include src\main.asm
 if errorlevel 1 exit /b 1
 ml /nologo /c /coff /Zi /W3 /I "%IRVINE_INC%" /I include src\utils.asm
@@ -135,12 +135,12 @@ if errorlevel 1 exit /b 1
 ml /nologo /c /coff /Zi /W3 /I "%IRVINE_INC%" /I include src\external.asm
 if errorlevel 1 exit /b 1
 
-echo [AXS] Linking...
+echo [Ash] Linking...
 link /nologo /SUBSYSTEM:CONSOLE /DEBUG /OUT:%OUT% ^
   main.obj utils.obj parser.obj builtins.obj env.obj history.obj console.obj dispatch.obj pipeline.obj script.obj external.obj ^
   "%IRVINE_LIB%\Irvine32.lib" kernel32.lib user32.lib
 if errorlevel 1 exit /b 1
 
-echo [AXS] OK: %OUT%
+echo [Ash] OK: %OUT%
 popd >nul
 endlocal

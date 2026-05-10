@@ -1,4 +1,4 @@
-; main.asm - AXS (Advanced x86 Shell)
+; main.asm - Ash (minimal x86 shell for Windows)
 ; 32-bit MASM + Irvine32 skeleton.
 
 .386
@@ -6,13 +6,13 @@
 option casemap:none
 
 INCLUDE Irvine32.inc
-AXS_MAIN EQU 1
-INCLUDE axs.inc
+ASH_MAIN EQU 1
+INCLUDE ash.inc
 
 INCLUDELIB kernel32.lib
 
 .data
-; Shared globals (declared as EXTERN in axs.inc)
+; Shared globals (declared as EXTERN in ash.inc)
 gLineBuf        BYTE MAX_LINE DUP(0)
 gCmd            COMMAND <>
 
@@ -20,7 +20,7 @@ gShouldExit     DWORD 0
 gLastExitCode   DWORD 0
 
 gBanner1        BYTE "========================================",0Dh,0Ah,0
-gBanner2        BYTE "    AXS Shell v0.1 - Advanced x86 Shell",0Dh,0Ah,0
+gBanner2        BYTE "    Ash v0.1 - Minimal x86 shell for Windows",0Dh,0Ah,0
 gBanner3        BYTE "    Type 'help' for available commands",0Dh,0Ah,0
 gBanner4        BYTE "========================================",0Dh,0Ah,0
 

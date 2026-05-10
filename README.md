@@ -1,12 +1,12 @@
-# AXS — Advanced x86 Shell
+# Ash — Minimal x86 shell for Windows
 
 **A fully functional 32-bit Windows command-line interpreter written entirely in x86 Assembly Language (MASM).**
 
-AXS implements the complete REPL cycle — interactive input with history and tab-completion, a tokenizing parser, 16 built-in commands, environment variable expansion, I/O redirection, anonymous pipes, command chaining, background execution, external process launching, and `.shl` script execution — using only Win32 API calls and the Irvine32 helper library. No C runtime. No higher-level language.
+Ash implements the complete REPL cycle — interactive input with history and tab-completion, a tokenizing parser, 16 built-in commands, environment variable expansion, I/O redirection, anonymous pipes, command chaining, background execution, external process launching, and `.shl` script execution — using only Win32 API calls and the Irvine32 helper library. No C runtime. No higher-level language.
 
 > **Course:** Computer Organization & Assembly Language (COAL) — Group 11
 > **Platform:** Windows (32-bit COFF PE), MASM + Irvine32
-> **Output binary:** `axs.exe`
+> **Output binary:** `ash.exe`
 
 ---
 
@@ -22,7 +22,7 @@ AXS implements the complete REPL cycle — interactive input with history and ta
 8. [Script Files (.shl)](#script-files-shl)
 9. [Command History & Tab Completion](#command-history--tab-completion)
 10. [Build Instructions](#build-instructions)
-11. [Running AXS](#running-axs)
+11. [Running Ash](#running-ash)
 12. [Quick Test Checklist](#quick-test-checklist)
 13. [Data Structures & Constants](#data-structures--constants)
 14. [Win32 API Surface](#win32-api-surface)
@@ -53,7 +53,7 @@ AXS implements the complete REPL cycle — interactive input with history and ta
 ## Repository Layout
 
 ```
-minimal_Shell/
+ash/
 ├── src/
 │   ├── main.asm        Entry point — initialization, REPL loop, argv handling
 │   ├── utils.asm       String utilities (StrLen, StrEqI, StrToLowerInPlace, …)
@@ -67,12 +67,12 @@ minimal_Shell/
 │   ├── external.asm    CreateProcess-based external program launcher
 │   └── script.asm      .shl script file reader / executor
 ├── include/
-│   ├── axs.inc         Shared constants, COMMAND struct, all module PROTOs
+│   ├── ash.inc         Shared constants, COMMAND struct, all module PROTOs
 │   └── win32_min.inc   Minimal Win32 API declarations (no full SDK headers needed)
 ├── scripts/
 │   └── sample.shl      Safe demo script (echo, cd, dir)
 ├── build/
-│   ├── build.bat       Assembles all 11 modules and links axs.exe
+│   ├── build.bat       Assembles all 11 modules and links ash.exe
 │   └── clean.bat       Removes .obj / .exe / .pdb / .ilk artefacts
 ├── build.bat           Convenience wrapper -> build\build.bat
 ├── clean.bat           Convenience wrapper -> build\clean.bat
@@ -81,13 +81,15 @@ minimal_Shell/
 └── PROJECT_REPORT.md   Comprehensive implementation report
 ```
 
+*The tree uses `ash/` as the repository root; your local clone directory name may differ.*
+
 ---
 
 ## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           axs.exe                                   │
+│                           ash.exe                                   │
 │                         main.asm                                    │
 │   Init all modules → Check argv → Banner → REPL loop               │
 └──────────────────────────────┬──────────────────────────────────────┘
@@ -312,10 +314,10 @@ Run with:
 run myscript.shl
 ```
 
-or pass directly to `axs.exe`:
+or pass directly to `ash.exe`:
 
 ```
-axs.exe myscript.shl
+ash.exe myscript.shl
 ```
 
 - Lines beginning with `#` are comments.
@@ -376,7 +378,7 @@ Get-ChildItem -Path $env:USERPROFILE -Filter Irvine32.inc -Recurse -ErrorAction 
 build.bat
 ```
 
-Output: `axs.exe`
+Output: `ash.exe`
 
 **4.** To clean artefacts:
 
@@ -386,17 +388,17 @@ clean.bat
 
 ---
 
-## Running AXS
+## Running Ash
 
 ### Interactive mode
 
 ```
-axs.exe
+ash.exe
 ```
 
 ```
 ========================================
-    AXS Shell v0.1 - Advanced x86 Shell
+    Ash v0.1 - Minimal x86 shell for Windows
     Type 'help' for available commands
 ========================================
 C:\Users\You> _
@@ -405,14 +407,14 @@ C:\Users\You> _
 ### Non-interactive: script file
 
 ```
-axs.exe scripts\sample.shl
+ash.exe scripts\sample.shl
 ```
 
 ### Non-interactive: inline command
 
 ```
-axs.exe echo hello world
-axs.exe dir > listing.txt
+ash.exe echo hello world
+ash.exe dir > listing.txt
 ```
 
 ---
@@ -426,7 +428,7 @@ cd \
 dir
 set
 ver
-title AXS test window
+title Ash test window
 
 set FOO=bar
 echo %FOO%
@@ -447,7 +449,7 @@ run scripts\sample.shl
 
 ## Data Structures & Constants
 
-All shared definitions live in [include/axs.inc](include/axs.inc):
+All shared definitions live in [include/ash.inc](include/ash.inc):
 
 ```asm
 MAX_LINE        EQU 512      ; Maximum input/line buffer size (bytes)
@@ -463,7 +465,7 @@ COMMAND STRUCT
 COMMAND ENDS
 ```
 
-Global state (defined in `main.asm`, exported via `axs.inc`):
+Global state (defined in `main.asm`, exported via `ash.inc`):
 
 | Symbol | Type | Purpose |
 |---|---|---|
@@ -522,4 +524,4 @@ Global state (defined in `main.asm`, exported via `axs.inc`):
 
 ---
 
-*AXS demonstrates that a real, usable shell can be written entirely in assembly language — every byte of command parsing, every pipe handle, every process spawn orchestrated in raw x86 with no C runtime and no standard library.*
+*Ash demonstrates that a real, usable shell can be written entirely in assembly language — every byte of command parsing, every pipe handle, every process spawn orchestrated in raw x86 with no C runtime and no standard library.*

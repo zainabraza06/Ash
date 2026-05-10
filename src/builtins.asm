@@ -1,11 +1,11 @@
-; builtins.asm - built-in commands for AXS
+; builtins.asm - built-in commands for Ash
 
 .386
 .model flat, stdcall
 option casemap:none
 
 INCLUDE Irvine32.inc
-INCLUDE axs.inc
+INCLUDE ash.inc
 
 INCLUDELIB kernel32.lib
 
@@ -68,7 +68,7 @@ TypeBuf BYTE 4096 DUP(0)
 
 starPattern BYTE "*.*",0
 
-fmtVerOut BYTE "AXS: Windows %u.%u (build %u)",0Dh,0Ah,0
+fmtVerOut BYTE "Ash: Windows %u.%u (build %u)",0Dh,0Ah,0
 VerOutBuf BYTE 160 DUP(0)
 
 TitleBuf BYTE 260 DUP(0)

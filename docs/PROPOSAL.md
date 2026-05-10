@@ -1,4 +1,4 @@
-# AXS (Advanced x86 Shell) – A Feature-Rich Command-Line Interpreter in Pure Assembly Language
+# Ash (minimal x86 shell for Windows) – A Feature-Rich Command-Line Interpreter in Pure Assembly Language
 
 **Group 11 – Project Proposal**
 
@@ -8,7 +8,7 @@
 
 ## 1. Project Title
 
-**AXS (Advanced x86 Shell) – A Feature-Rich Command-Line Interpreter in Pure Assembly Language**
+**Ash (minimal x86 shell for Windows) – A Feature-Rich Command-Line Interpreter in Pure Assembly Language**
 
 ---
 
@@ -27,9 +27,9 @@
 
 ### 3.1 Overview
 
-This project presents **AXS (Advanced x86 Shell)**, a fully functional command-line interpreter developed entirely in x86 Assembly Language using the MASM assembler and Irvine32 library. The shell provides an interactive environment for users to execute commands, manage files, run external programs, and automate tasks through script files — all implemented at the lowest practical level of software.
+This project presents **Ash (minimal x86 shell for Windows)**, a fully functional command-line interpreter developed entirely in x86 Assembly Language using the MASM assembler and Irvine32 library. The shell provides an interactive environment for users to execute commands, manage files, run external programs, and automate tasks through script files — all implemented at the lowest practical level of software.
 
-Unlike typical COAL projects that focus on games or simple calculators, AXS demonstrates **real operating system internals** including process creation, file I/O, string parsing, environment variable management, and inter-process communication (pipes) — concepts that directly translate to understanding how Windows Command Prompt, Linux Bash, and Unix shells work under the hood.
+Unlike typical COAL projects that focus on games or simple calculators, Ash demonstrates **real operating system internals** including process creation, file I/O, string parsing, environment variable management, and inter-process communication (pipes) — concepts that directly translate to understanding how Windows Command Prompt, Linux Bash, and Unix shells work under the hood.
 
 ### 3.2 Why Assembly Language?
 
@@ -45,7 +45,7 @@ Assembly Language is uniquely suited for building a shell because:
 
 ### 3.3 Advanced & Innovative Features
 
-Beyond a basic shell, AXS incorporates **five advanced features** that make it stand out:
+Beyond a basic shell, Ash incorporates **five advanced features** that make it stand out:
 
 #### Feature 1: Pipeline Support (`|`)
 
@@ -111,7 +111,7 @@ Press **Tab** to auto-complete file/directory names in the current path.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│                         AXS SHELL MAIN                          │
+│                         ASH SHELL MAIN                          │
 └─────────────────────────────────────────────────────────────────┘
                                  │
                                  ▼
@@ -211,7 +211,7 @@ Scripts can contain any commands, comments (lines starting with `#`), and enviro
 
 ### Why This Project Deserves Top Marks
 
-| Criterion | How AXS Excels |
+| Criterion | How Ash compares |
 |----------|-----------------|
 | **Novelty** | No other group is building a shell; all others are doing games or simple utilities |
 | **Technical depth** | Demonstrates process creation, pipe management, string parsing, file I/O — 5+ advanced OS concepts |
@@ -222,7 +222,7 @@ Scripts can contain any commands, comments (lines starting with `#`), and enviro
 
 ### Comparison with Existing Student Projects
 
-| Feature | Typical Game Project | AXS Shell |
+| Feature | Typical Game Project | Ash shell |
 |--------|----------------------|----------|
 | Demonstrates OS knowledge | ❌ No | ✅ Yes |
 | Process management | ❌ No | ✅ Yes |
@@ -263,7 +263,7 @@ Scripts can contain any commands, comments (lines starting with `#`), and enviro
 
 ```text
 ========================================
-    AXS Shell v1.0 - Advanced x86 Shell
+    Ash v1.0 — Minimal x86 shell for Windows
     Type 'help' for available commands
 ========================================
 
@@ -328,7 +328,7 @@ Goodbye!
 
 ## 11. Conclusion
 
-The **AXS (Advanced x86 Shell)** project represents a **significant departure from typical COAL projects** (games, calculators, simple utilities) by tackling a **real systems programming challenge** — building a functional command-line interpreter from scratch in assembly language.
+The **Ash (minimal x86 shell for Windows)** project represents a **significant departure from typical COAL projects** (games, calculators, simple utilities) by tackling a **real systems programming challenge** — building a functional command-line interpreter from scratch in assembly language.
 
 The project demonstrates:
 - **Deep understanding** of OS internals (processes, pipes, file I/O)

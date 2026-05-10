@@ -1,4 +1,4 @@
 # sample.shl — safe demo (prints cwd and a short dir listing)
-echo AXS sample script
+echo Ash sample script
 cd
 dir

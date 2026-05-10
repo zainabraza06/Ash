@@ -6,7 +6,7 @@
 option casemap:none
 
 INCLUDE Irvine32.inc
-INCLUDE axs.inc
+INCLUDE ash.inc
 
 INCLUDELIB kernel32.lib
 

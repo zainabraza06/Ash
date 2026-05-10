@@ -1,5 +1,5 @@
-; axs.inc
-; Shared constants, data structures, and module APIs for AXS.
+; ash.inc
+; Shared constants, data structures, and module APIs for Ash.
 
 option casemap:none
 
@@ -74,7 +74,7 @@ Console_ReadLine    PROTO, pBuf:PTR BYTE, cbBuf:DWORD
 Shell_ExecuteLine   PROTO, pLine:PTR BYTE
 
 ; --- Shared globals (defined in main.asm) ---
-IFDEF AXS_MAIN
+IFDEF ASH_MAIN
   PUBLIC gLineBuf
   PUBLIC gCmd
   PUBLIC gShouldExit
