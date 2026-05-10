@@ -100,9 +100,9 @@ Builtin_WriteStdoutZ PROC USES ecx, pStr:PTR BYTE
     ret
 Builtin_WriteStdoutZ ENDP
 
-Builtin_WriteStdoutChar PROC USES eax, ch:BYTE
+Builtin_WriteStdoutChar PROC USES eax, charVal:BYTE
     LOCAL tmp[2]:BYTE
-    mov al, ch
+    mov al, charVal
     mov tmp[0], al
     mov tmp[1], 0
     INVOKE Builtin_WriteStdoutBuf, ADDR tmp, 1
@@ -403,9 +403,12 @@ check_echo:
 echo_loop:
     cmp ebx, ecx
     jae echo_done
+    cmp ebx, 1
+    je  echo_token
+    INVOKE Builtin_WriteStdoutChar, ' '
+echo_token:
     mov edx, [edi].COMMAND.argv[ebx*4]
     INVOKE Builtin_WriteStdoutZ, edx
-    INVOKE Builtin_WriteStdoutChar, ' '
     inc ebx
     jmp echo_loop
 

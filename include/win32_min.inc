@@ -176,3 +176,6 @@ FindClose      PROTO, hFindFile:DWORD
 
 GetStdHandle PROTO, nStdHandle:DWORD
 SetStdHandle PROTO, nStdHandle:DWORD, hHandle:DWORD
+
+GetCommandLineA PROTO STDCALL
+ExitProcess PROTO STDCALL, uExitCode:DWORD

@@ -72,47 +72,86 @@ name_done:
     ; copy value to tmp
     mov ebx, OFFSET ValBuf
 val_copy:
-    mov al, [ebx]
-    cmp al, 0
+    mov dl, [ebx]
+    cmp dl, 0
     je  copy_loop
-    mov [edi], al
+    mov eax, edi
+    sub eax, OFFSET TmpBuf
+    cmp eax, cbLine
+    jae finish
+    mov [edi], dl
     inc edi
     inc ebx
     jmp val_copy
 
 keep_original:
     ; write back %NAME%
+    mov eax, edi
+    sub eax, OFFSET TmpBuf
+    cmp eax, cbLine
+    jae finish
     mov BYTE PTR [edi], '%'
     inc edi
     mov ebx, OFFSET NameBuf
 ko_loop:
-    mov al, [ebx]
-    cmp al, 0
+    mov dl, [ebx]
+    cmp dl, 0
     je  ko_end
-    mov [edi], al
+    mov eax, edi
+    sub eax, OFFSET TmpBuf
+    cmp eax, cbLine
+    jae finish
+    mov [edi], dl
     inc edi
     inc ebx
     jmp ko_loop
 ko_end:
+    mov eax, edi
+    sub eax, OFFSET TmpBuf
+    cmp eax, cbLine
+    jae finish
     mov BYTE PTR [edi], '%'
     inc edi
     jmp copy_loop
 
 not_var:
     ; treat as literal '%'
+    mov eax, edi
+    sub eax, OFFSET TmpBuf
+    cmp eax, cbLine
+    jae finish
     mov BYTE PTR [edi], '%'
     inc edi
     jmp copy_loop
 
 copy_char:
-    mov [edi], al
+    mov bl, al
+    mov eax, edi
+    sub eax, OFFSET TmpBuf
+    cmp eax, cbLine
+    jae finish
+    mov [edi], bl
     inc edi
     inc esi
     jmp copy_loop
 
 finish:
+    mov eax, edi
+    sub eax, OFFSET TmpBuf
+    cmp eax, cbLine
+    jb  fin_ok
+    mov edi, OFFSET TmpBuf
+    mov eax, cbLine
+    test eax, eax
+    je  fin_edge
+    dec eax
+    add edi, eax
+    jmp fin_done
+fin_edge:
+    mov edi, OFFSET TmpBuf
+fin_ok:
+fin_done:
     mov BYTE PTR [edi], 0
-    ; copy tmp back to line
     INVOKE Str_copy, ADDR TmpBuf, pLine
     ret
 Env_ExpandPercentVars ENDP

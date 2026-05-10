@@ -49,7 +49,8 @@ Output:
 
 ## Run
 
-- From the repo root: `./axs.exe`
+- Interactive shell (this **is** the AXS program—it does not replace Windows’ default shell system-wide; it only runs when you start `axs.exe`): from the repo root run `axs.exe`.
+- Non-interactive: if you pass a **`.shl` script path** as the first argument, that script runs and the process exits (for example `axs.exe scripts\sample.shl`). Any other command tail is executed as **one line** of shell input, then exit (for example `axs.exe echo hello`).
 
 ## Quick test checklist
 

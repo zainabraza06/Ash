@@ -27,6 +27,8 @@ CMD_FLAG_NONE       EQU 0
 ; utils.asm
 StrSkipSpaces       PROTO, pStr:PTR BYTE
 StrStartsWithI      PROTO, pStr:PTR BYTE, pPrefix:PTR BYTE
+StrEndsWithI        PROTO, pStr:PTR BYTE, pSuffix:PTR BYTE
+StrStripOuterQuotesInPlace PROTO, pBuf:PTR BYTE
 StrEqI              PROTO, pA:PTR BYTE, pB:PTR BYTE
 StrToLowerInPlace   PROTO, pStr:PTR BYTE
 StrLen              PROTO, pStr:PTR BYTE
