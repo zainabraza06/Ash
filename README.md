@@ -41,7 +41,7 @@ Output:
 
 - Working REPL loop with history (Up/Down) and Tab completion
 - Parser: space + quoted tokens
-- Built-ins: `cd dir type copy del mkdir rmdir ren echo set run help cls exit`
+- Built-ins: `cd dir type copy del mkdir rmdir ren echo set run help cls ver exit`
 - Env: `%VAR%` expansion + `set` listing via Win32 env block
 - Scripts: run `.shl` via `run yourfile.shl`
 - Execution: CreateProcess-based external commands
@@ -55,7 +55,7 @@ Output:
 ## Quick test checklist
 
 Inside AXS:
-- Built-ins: `help`, `echo hi`, `cd \`, `dir`, `set`
+- Built-ins: `help`, `echo hi`, `cd \`, `dir`, `set`, `ver`
 - Env expansion: `set FOO=bar` then `echo %FOO%`
 - Redirection: `echo hello > out.txt`, `echo again >> out.txt`, `type out.txt`
 - Pipeline: `type out.txt | findstr hello`

@@ -27,6 +27,7 @@ sDel      BYTE "del",0
 sMkdir    BYTE "mkdir",0
 sRmdir    BYTE "rmdir",0
 sRen      BYTE "ren",0
+sVer      BYTE "ver",0
 
 helpText BYTE "Built-in Commands:",0Dh,0Ah
          BYTE "  cd [dir]           - Change directory",0Dh,0Ah
@@ -41,6 +42,7 @@ helpText BYTE "Built-in Commands:",0Dh,0Ah
          BYTE "  set [VAR=val]      - Show/set environment variables",0Dh,0Ah
          BYTE "  run <script.shl>   - Run script file",0Dh,0Ah
          BYTE "  cls                - Clear screen",0Dh,0Ah
+         BYTE "  ver                - Show Windows version",0Dh,0Ah
          BYTE "  exit               - Exit shell",0Dh,0Ah
          BYTE 0
 
@@ -62,6 +64,9 @@ okMsg BYTE "OK",0Dh,0Ah,0
 TypeBuf BYTE 4096 DUP(0)
 
 starPattern BYTE "*.*",0
+
+fmtVerOut BYTE "AXS: Windows %u.%u (build %u)",0Dh,0Ah,0
+VerOutBuf BYTE 160 DUP(0)
 
 .code
 
@@ -116,6 +121,26 @@ Builtin_WriteStdoutCRLF PROC
     INVOKE Builtin_WriteStdoutBuf, ADDR tmp, 2
     ret
 Builtin_WriteStdoutCRLF ENDP
+
+Builtin_Ver PROC USES ebx ecx edx
+    LOCAL vi:OSVERSIONINFOA
+
+    mov vi.dwOSVersionInfoSize, SIZEOF OSVERSIONINFOA
+    INVOKE GetVersionExA, ADDR vi
+    cmp eax, 0
+    jne ver_ok
+
+    mov edx, OFFSET msgErr
+    INVOKE Builtin_WriteStdoutZ, edx
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+ver_ok:
+    INVOKE wsprintfA, ADDR VerOutBuf, ADDR fmtVerOut, vi.dwMajorVersion, vi.dwMinorVersion, vi.dwBuildNumber
+    INVOKE Builtin_WriteStdoutZ, ADDR VerOutBuf
+    INVOKE Builtin_SetExitCode, 0
+    ret
+Builtin_Ver ENDP
 
 Builtin_Dir PROC USES ebx ecx edx, pCmd:PTR COMMAND
     LOCAL fd:WIN32_FIND_DATAA
@@ -384,9 +409,17 @@ check_help:
 check_cls:
     INVOKE StrEqI, esi, ADDR sCls
     cmp eax, 1
-    jne check_echo
+    jne check_ver
     call ClrScr
     INVOKE Builtin_SetExitCode, 0
+    mov eax, 1
+    ret
+
+check_ver:
+    INVOKE StrEqI, esi, ADDR sVer
+    cmp eax, 1
+    jne check_echo
+    call Builtin_Ver
     mov eax, 1
     ret
 
@@ -587,6 +620,9 @@ Builtins_IsBuiltin PROC USES esi edi, pCmd:PTR COMMAND
     cmp eax, 1
     je  yes
     INVOKE StrEqI, esi, ADDR sCls
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sVer
     cmp eax, 1
     je  yes
     INVOKE StrEqI, esi, ADDR sEcho

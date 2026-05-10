@@ -123,6 +123,15 @@ WIN32_FIND_DATAA STRUCT
   cAlternateFileName BYTE 14 DUP(?)
 WIN32_FIND_DATAA ENDS
 
+OSVERSIONINFOA STRUCT
+  dwOSVersionInfoSize DWORD ?
+  dwMajorVersion      DWORD ?
+  dwMinorVersion      DWORD ?
+  dwBuildNumber       DWORD ?
+  dwPlatformId        DWORD ?
+  szCSDVersion        BYTE 128 DUP(?)
+OSVERSIONINFOA ENDS
+
 ; --- Win32 API prototypes (stdcall) ---
 
 GetLastError PROTO STDCALL
@@ -179,3 +188,7 @@ SetStdHandle PROTO, nStdHandle:DWORD, hHandle:DWORD
 
 GetCommandLineA PROTO STDCALL
 ExitProcess PROTO STDCALL, uExitCode:DWORD
+
+GetVersionExA PROTO STDCALL, lpVersionInformation:PTR OSVERSIONINFOA
+
+wsprintfA PROTO C :PTR BYTE, :PTR BYTE, :VARARG
