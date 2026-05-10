@@ -27,7 +27,7 @@ Steps:
    - `set IRVINE=C:\path\to\Irvine`
    - The folder must contain `Irvine32.inc` and `Irvine32.lib`.
 3. From the repo root, run:
-   - `build\build.bat`
+   - `build.bat` (or `build\build.bat`)
 
 Finding your Irvine32 folder:
 - If you’re not sure where Irvine is installed, search for `Irvine32.inc` and set `IRVINE` to the folder that contains it.

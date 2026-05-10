@@ -75,6 +75,48 @@ Builtin_SetExitCode PROC, code:DWORD
     ret
 Builtin_SetExitCode ENDP
 
+; --- Builtin output helpers ---
+; Use WriteFile against the current STD_OUTPUT_HANDLE so redirection via SetStdHandle works.
+Builtin_WriteStdoutBuf PROC USES ebx ecx edx, pBuf:PTR BYTE, cbBuf:DWORD
+    LOCAL bytesWritten:DWORD
+
+    INVOKE GetStdHandle, STD_OUTPUT_HANDLE
+    mov ebx, eax
+
+    mov ecx, cbBuf
+    cmp ecx, 0
+    je  done
+
+    INVOKE WriteFile, ebx, pBuf, ecx, ADDR bytesWritten, 0
+
+done:
+    ret
+Builtin_WriteStdoutBuf ENDP
+
+Builtin_WriteStdoutZ PROC USES ecx, pStr:PTR BYTE
+    INVOKE StrLen, pStr
+    mov ecx, eax
+    INVOKE Builtin_WriteStdoutBuf, pStr, ecx
+    ret
+Builtin_WriteStdoutZ ENDP
+
+Builtin_WriteStdoutChar PROC USES eax, ch:BYTE
+    LOCAL tmp[2]:BYTE
+    mov al, ch
+    mov tmp[0], al
+    mov tmp[1], 0
+    INVOKE Builtin_WriteStdoutBuf, ADDR tmp, 1
+    ret
+Builtin_WriteStdoutChar ENDP
+
+Builtin_WriteStdoutCRLF PROC
+    LOCAL tmp[2]:BYTE
+    mov tmp[0], 0Dh
+    mov tmp[1], 0Ah
+    INVOKE Builtin_WriteStdoutBuf, ADDR tmp, 2
+    ret
+Builtin_WriteStdoutCRLF ENDP
+
 Builtin_Dir PROC USES ebx ecx edx, pCmd:PTR COMMAND
     LOCAL fd:WIN32_FIND_DATAA
     LOCAL hFind:DWORD
@@ -96,13 +138,13 @@ have:
 
     INVOKE Builtin_SetExitCode, 1
     mov edx, OFFSET msgErr
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     ret
 
 dir_loop:
     lea edx, fd.cFileName
-    call WriteString
-    call Crlf
+    INVOKE Builtin_WriteStdoutZ, edx
+    INVOKE Builtin_WriteStdoutCRLF
 
     INVOKE FindNextFileA, hFind, ADDR fd
     cmp eax, 0
@@ -125,7 +167,7 @@ Builtin_Type PROC USES ebx ecx edx, pCmd:PTR COMMAND
     jae ok
 
     mov edx, OFFSET usageType
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
@@ -137,7 +179,7 @@ ok:
     jne read_loop
 
     mov edx, OFFSET msgErr
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
@@ -158,7 +200,7 @@ read_loop:
 
 close:
     INVOKE CloseHandle, hFile
-    call Crlf
+    INVOKE Builtin_WriteStdoutCRLF
     INVOKE Builtin_SetExitCode, 0
     ret
 Builtin_Type ENDP
@@ -170,7 +212,7 @@ Builtin_Copy PROC USES ebx ecx edx, pCmd:PTR COMMAND
     jae ok
 
     mov edx, OFFSET usageCopy
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
@@ -182,13 +224,13 @@ ok:
     jne good
 
     mov edx, OFFSET msgErr
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
 good:
     mov edx, OFFSET okMsg
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 0
     ret
 Builtin_Copy ENDP
@@ -200,7 +242,7 @@ Builtin_Del PROC USES ebx edx, pCmd:PTR COMMAND
     jae ok
 
     mov edx, OFFSET usageDel
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
@@ -211,13 +253,13 @@ ok:
     jne good
 
     mov edx, OFFSET msgErr
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
 good:
     mov edx, OFFSET okMsg
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 0
     ret
 Builtin_Del ENDP
@@ -229,7 +271,7 @@ Builtin_Mkdir PROC USES ebx edx, pCmd:PTR COMMAND
     jae ok
 
     mov edx, OFFSET usageMkdir
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
@@ -240,13 +282,13 @@ ok:
     jne good
 
     mov edx, OFFSET msgErr
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
 good:
     mov edx, OFFSET okMsg
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 0
     ret
 Builtin_Mkdir ENDP
@@ -258,7 +300,7 @@ Builtin_Rmdir PROC USES ebx edx, pCmd:PTR COMMAND
     jae ok
 
     mov edx, OFFSET usageRmdir
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
@@ -269,13 +311,13 @@ ok:
     jne good
 
     mov edx, OFFSET msgErr
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
 good:
     mov edx, OFFSET okMsg
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 0
     ret
 Builtin_Rmdir ENDP
@@ -287,7 +329,7 @@ Builtin_Ren PROC USES ebx ecx edx, pCmd:PTR COMMAND
     jae ok
 
     mov edx, OFFSET usageRen
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
@@ -299,13 +341,13 @@ ok:
     jne good
 
     mov edx, OFFSET msgErr
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
 good:
     mov edx, OFFSET okMsg
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 0
     ret
 Builtin_Ren ENDP
@@ -334,7 +376,7 @@ check_help:
     cmp eax, 1
     jne check_cls
     mov edx, OFFSET helpText
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 0
     mov eax, 1
     ret
@@ -362,14 +404,13 @@ echo_loop:
     cmp ebx, ecx
     jae echo_done
     mov edx, [edi].COMMAND.argv[ebx*4]
-    call WriteString
-    mov al, ' '
-    call WriteChar
+    INVOKE Builtin_WriteStdoutZ, edx
+    INVOKE Builtin_WriteStdoutChar, ' '
     inc ebx
     jmp echo_loop
 
 echo_done:
-    call Crlf
+    INVOKE Builtin_WriteStdoutCRLF
     INVOKE Builtin_SetExitCode, 0
     mov eax, 1
     ret
@@ -388,7 +429,7 @@ check_cd:
     cmp eax, 0
     jne cd_ok
     mov edx, OFFSET msgErr
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     mov eax, 1
     ret
@@ -401,8 +442,8 @@ cd_ok:
 cd_print:
     INVOKE GetCurrentDirectoryA, SIZEOF cdBuf, ADDR cdBuf
     mov edx, OFFSET cdBuf
-    call WriteString
-    call Crlf
+    INVOKE Builtin_WriteStdoutZ, edx
+    INVOKE Builtin_WriteStdoutCRLF
     INVOKE Builtin_SetExitCode, 0
     mov eax, 1
     ret
@@ -422,7 +463,7 @@ check_set:
     cmp eax, 2
     je  set_fail
     mov edx, OFFSET usageSet
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     mov eax, 1
     ret
@@ -454,7 +495,7 @@ check_run:
     jae run_ok
 
     mov edx, OFFSET usageRun
-    call WriteString
+    INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     mov eax, 1
     ret

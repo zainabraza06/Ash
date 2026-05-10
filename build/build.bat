@@ -1,6 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
+REM Always run from repo root (so relative paths like src\... resolve)
+pushd "%~dp0.." >nul
+
 REM Build script for AXS (32-bit MASM + Irvine32)
 REM Recommended: run from a "Developer Command Prompt for VS".
 
@@ -139,4 +142,5 @@ link /nologo /SUBSYSTEM:CONSOLE /DEBUG /OUT:%OUT% ^
 if errorlevel 1 exit /b 1
 
 echo [AXS] OK: %OUT%
+popd >nul
 endlocal
