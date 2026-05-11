@@ -60,6 +60,8 @@ msgErr BYTE "Error.",0Dh,0Ah,0
 usageType  BYTE "Usage: type <file>",0Dh,0Ah,0
 usageCopy  BYTE "Usage: copy <src> <dest>",0Dh,0Ah,0
 usageDel   BYTE "Usage: del <file>",0Dh,0Ah,0
+msgDelNF   BYTE "Could not find ",0
+msgDelDeny BYTE "Access denied.",0Dh,0Ah,0
 usageMkdir BYTE "Usage: mkdir <dir>",0Dh,0Ah,0
 usageRmdir BYTE "Usage: rmdir <dir>",0Dh,0Ah,0
 usageRen   BYTE "Usage: ren <old> <new>",0Dh,0Ah,0
@@ -376,29 +378,51 @@ good:
     ret
 Builtin_Copy ENDP
 
-Builtin_Del PROC USES ebx edx, pCmd:PTR COMMAND
+Builtin_Del PROC USES ebx edx esi, pCmd:PTR COMMAND
     mov ebx, pCmd
     mov eax, [ebx].COMMAND.argc
     cmp eax, 2
-    jae ok
+    jae del_ok
 
     mov edx, OFFSET usageDel
     INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
-ok:
+del_ok:
     mov edx, [ebx].COMMAND.argv[4]
     INVOKE DeleteFileA, edx
     cmp eax, 0
-    jne good
+    jne del_good
+
+    INVOKE GetLastError
+    mov esi, eax
+    cmp esi, ERROR_FILE_NOT_FOUND
+    je  del_nf
+    cmp esi, ERROR_ACCESS_DENIED
+    je  del_deny
 
     mov edx, OFFSET msgErr
     INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 1
     ret
 
-good:
+del_nf:
+    mov edx, OFFSET msgDelNF
+    INVOKE Builtin_WriteStdoutZ, edx
+    mov edx, [ebx].COMMAND.argv[4]
+    INVOKE Builtin_WriteStdoutZ, edx
+    INVOKE Builtin_WriteStdoutCRLF
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+del_deny:
+    mov edx, OFFSET msgDelDeny
+    INVOKE Builtin_WriteStdoutZ, edx
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+del_good:
     mov edx, OFFSET okMsg
     INVOKE Builtin_WriteStdoutZ, edx
     INVOKE Builtin_SetExitCode, 0

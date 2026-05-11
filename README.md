@@ -4,7 +4,7 @@
 
 Ash implements the complete REPL cycle — interactive input with history and tab-completion, a tokenizing parser, 19 built-in commands, environment variable expansion, I/O redirection, anonymous pipes, command chaining, background execution, external process launching, and `.shl` script execution — using only Win32 API calls and the Irvine32 helper library. No C runtime. No higher-level language.
 
-> **Course:** Computer Organization & Assembly Language (COAL) — Group 11
+> **Course:** Computer Organization & Assembly Language (COAL) 
 > **Platform:** Windows (32-bit COFF PE), MASM + Irvine32
 > **Output binary:** `ash.exe`
 
@@ -554,17 +554,6 @@ Global state (defined in `main.asm`, exported via `ash.inc`):
 
 ---
 
-## Team
 
-**Group 11 — COAL Project**
-
-| Member | Role |
-|---|---|
-| Zainab Raza Malik | Core Engine & Parser — main loop, tokenizer, quote handling, input validation |
-| Eiman Zahra | Built-in Commands & File System — `cd dir type copy del mkdir rmdir ren`, directory tracking |
-| Saliha Waqas | Advanced Features — pipes, I/O redirection, chaining, background execution, env vars |
-| Fatima Ahmed | External Execution & Integration — `CreateProcess`, error handling, scripting, testing |
-
----
 
 *Ash demonstrates that a real, usable shell can be written entirely in assembly language — every byte of command parsing, every pipe handle, every process spawn orchestrated in raw x86 with no C runtime and no standard library.*

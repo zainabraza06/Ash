@@ -6,7 +6,7 @@
 *.map
 *.lst
 *.log
-
+project_report.md
 # VS
 .vs/
 

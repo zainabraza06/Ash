@@ -121,15 +121,17 @@ Pipe_ParseOutputRedir PROC USES esi edi ebx, pCmdStr:PTR BYTE, pAppend:PTR DWORD
     cmp al, '>'
     jne single
 
-    ; append
-    mov DWORD PTR [pAppend], 1
+    ; append (*pAppend = 1)
+    mov eax, pAppend
+    mov DWORD PTR [eax], 1
     mov BYTE PTR [edi], 0
     mov BYTE PTR [edi+1], ' '
     lea edi, [edi+2]
     jmp get_name
 
 single:
-    mov DWORD PTR [pAppend], 0
+    mov eax, pAppend
+    mov DWORD PTR [eax], 0
     mov BYTE PTR [edi], 0
     lea edi, [edi+1]
 
@@ -160,10 +162,14 @@ ok:
     ret
 
 bad:
+    mov eax, pAppend
+    mov DWORD PTR [eax], 0
     xor eax, eax
     ret
 
 none:
+    mov eax, pAppend
+    mov DWORD PTR [eax], 0
     xor eax, eax
     ret
 Pipe_ParseOutputRedir ENDP
@@ -422,6 +428,7 @@ after_split:
     jmp cleanup
 
 in_ok:
+    INVOKE SetHandleInformation, hIn, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT
     jmp exec
 
 use_std_in:
@@ -456,32 +463,33 @@ stage_loop:
     cmp appendFlag, 0
     je  open_overwrite
 
-    ; append: OPEN_ALWAYS then seek end
-    INVOKE CreateFileA, pOutFile, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
-    cmp eax, INVALID_HANDLE_VALUE
-    jne app_ok
-    ; if not exist, create
-    INVOKE CreateFileA, pOutFile, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
-app_ok:
+    ; append: OPEN_ALWAYS opens existing without truncating (or creates empty file).
+    ; Do NOT use CREATE_ALWAYS after a failed OPEN_EXISTING — that truncates an existing file and loses prior lines.
+    INVOKE CreateFileA, pOutFile, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
     mov hOut, eax
     cmp eax, INVALID_HANDLE_VALUE
-    jne seek_end
+    je  append_open_fail
 
+    INVOKE SetFilePointer, hOut, 0, NULL, FILE_END
+    INVOKE SetHandleInformation, hOut, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT
+    jmp spawn
+
+append_open_fail:
     mov edx, OFFSET msgBadRedir
     call WriteString
     mov lastExit, 1
     jmp cleanup
 
-seek_end:
-    INVOKE SetFilePointer, hOut, 0, NULL, FILE_END
-    jmp spawn
-
 open_overwrite:
     INVOKE CreateFileA, pOutFile, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
     mov hOut, eax
     cmp eax, INVALID_HANDLE_VALUE
-    jne spawn
+    je  open_overwrite_fail
 
+    INVOKE SetHandleInformation, hOut, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT
+    jmp spawn
+
+open_overwrite_fail:
     mov edx, OFFSET msgBadRedir
     call WriteString
     mov lastExit, 1
