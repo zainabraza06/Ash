@@ -1,5 +1,5 @@
 ; pipeline.asm - pipes, redirection, chaining, background execution
-; Supports: |  <  >  >>  &&  ||  & (trailing)
+; Supports: |  <  >  >>  &&  ||  & (cmd-style chain; trailing & = background)
 ;
 ; Notes:
 ; - Built-ins are executed in-process, with temporary std-handle redirection.
@@ -322,7 +322,7 @@ Pipe_RunBuiltinWithHandles PROC USES eax,
     ret
 Pipe_RunBuiltinWithHandles ENDP
 
-; Executes one pipeline segment (no && / || splitting).
+; Executes one pipeline segment (no top-level && / || / & splitting — done in Pipeline_TryExecute).
 ; Input: pSeg points to modifiable string.
 ; Returns exit code in EAX and sets gLastExitCode.
 Pipe_ExecuteSegment PROC USES esi edi ebx ecx edx, pSeg:PTR BYTE
@@ -666,7 +666,7 @@ Pipeline_TryExecute PROC USES esi edi ebx ecx edx, pLine:PTR BYTE
     LOCAL hasOps:DWORD
     LOCAL lastExit:DWORD
     LOCAL segPtrs[16]:DWORD
-    LOCAL segOps[16]:DWORD    ; 0=none/first, 1=&&, 2=|| (operator BEFORE this segment)
+    LOCAL segOps[16]:DWORD    ; 0=none/first, 1=&&, 2=||, 3=& unconditional (operator BEFORE this segment)
     LOCAL segCount:DWORD
 
     mov hasOps, 0
@@ -695,7 +695,7 @@ after_scan:
     cmp hasOps, 0
     je  not_handled
 
-    ; build segments split on && and || (unquoted)
+    ; build segments split on &&, ||, and single & (unquoted; && takes precedence over &)
     mov esi, pLine
     INVOKE Pipe_SkipSpaces, esi
     mov edi, eax
@@ -725,9 +725,9 @@ chk_and:
     cmp al, '&'
     jne chk_or
     cmp BYTE PTR [edi+1], '&'
-    jne adv
+    jne split_amp_cmd
 
-    ; terminate previous segment
+    ; terminate previous segment (&&)
     mov BYTE PTR [edi], 0
     mov BYTE PTR [edi+1], 0
 
@@ -740,6 +740,24 @@ chk_and:
     mov eax, segCount
     mov segPtrs[eax*4], esi
     mov segOps[eax*4], 1
+    inc eax
+    mov segCount, eax
+
+    mov edi, esi
+    jmp parse_loop
+
+split_amp_cmd:
+    ; single & : cmd-style separator — always run the next segment (unlike && / ||).
+    mov BYTE PTR [edi], 0
+    inc edi
+    INVOKE Pipe_SkipSpaces, edi
+    mov esi, eax
+    cmp BYTE PTR [esi], 0
+    je  exec_all
+
+    mov eax, segCount
+    mov segPtrs[eax*4], esi
+    mov segOps[eax*4], 3
     inc eax
     mov segCount, eax
 
@@ -785,6 +803,8 @@ exec_loop:
     je  do_exec
 
     mov eax, segOps[ecx*4]
+    cmp eax, 3
+    je  do_exec
     cmp eax, 1
     jne chk_sc_or
     cmp lastExit, 0
