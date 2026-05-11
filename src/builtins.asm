@@ -29,6 +29,9 @@ sRmdir    BYTE "rmdir",0
 sRen      BYTE "ren",0
 sVer      BYTE "ver",0
 sTitle    BYTE "title",0
+sRem      BYTE "rem",0
+sPause    BYTE "pause",0
+sTime     BYTE "time",0
 
 helpText BYTE "Built-in Commands:",0Dh,0Ah
          BYTE "  cd [dir]           - Change directory",0Dh,0Ah
@@ -45,6 +48,9 @@ helpText BYTE "Built-in Commands:",0Dh,0Ah
          BYTE "  cls                - Clear screen",0Dh,0Ah
          BYTE "  ver                - Show Windows version",0Dh,0Ah
          BYTE "  title <text>       - Set console window title",0Dh,0Ah
+         BYTE "  rem <text>         - Comment (ignored)",0Dh,0Ah
+         BYTE "  pause              - Wait for a key press",0Dh,0Ah
+         BYTE "  time               - Show local date and time",0Dh,0Ah
          BYTE "  exit               - Exit shell",0Dh,0Ah
          BYTE 0
 
@@ -72,6 +78,11 @@ fmtVerOut BYTE "Ash: Windows %u.%u (build %u)",0Dh,0Ah,0
 VerOutBuf BYTE 160 DUP(0)
 
 TitleBuf BYTE 260 DUP(0)
+
+fmtTime BYTE "Current local time: %04lu-%02lu-%02lu %02lu:%02lu:%02lu",0Dh,0Ah,0
+TimeBuf BYTE 96 DUP(0)
+
+msgPause BYTE "Press any key to continue...",0Dh,0Ah,0
 
 .code
 
@@ -146,6 +157,44 @@ ver_ok:
     INVOKE Builtin_SetExitCode, 0
     ret
 Builtin_Ver ENDP
+
+Builtin_Time PROC USES eax ebx ecx edx esi edi
+    LOCAL locTime:SYSTEMTIME
+    LOCAL tn:DWORD
+    LOCAL tm:DWORD
+    LOCAL td:DWORD
+    LOCAL th:DWORD
+    LOCAL ti:DWORD
+    LOCAL ts:DWORD
+
+    INVOKE GetLocalTime, ADDR locTime
+    cmp eax, 0
+    jne tm_ok
+
+    mov edx, OFFSET msgErr
+    INVOKE Builtin_WriteStdoutZ, edx
+    INVOKE Builtin_SetExitCode, 1
+    ret
+
+tm_ok:
+    movzx eax, locTime.wYear
+    mov tn, eax
+    movzx eax, locTime.wMonth
+    mov tm, eax
+    movzx eax, locTime.wDay
+    mov td, eax
+    movzx eax, locTime.wHour
+    mov th, eax
+    movzx eax, locTime.wMinute
+    mov ti, eax
+    movzx eax, locTime.wSecond
+    mov ts, eax
+
+    INVOKE wsprintfA, ADDR TimeBuf, ADDR fmtTime, tn, tm, td, th, ti, ts
+    INVOKE Builtin_WriteStdoutZ, ADDR TimeBuf
+    INVOKE Builtin_SetExitCode, 0
+    ret
+Builtin_Time ENDP
 
 ; Join argv[1..] with spaces into TitleBuf (Windows limit 260 chars including null).
 Builtin_Title PROC USES esi edi ebx ecx, pCmd:PTR COMMAND
@@ -493,8 +542,36 @@ check_ver:
 check_title:
     INVOKE StrEqI, esi, ADDR sTitle
     cmp eax, 1
-    jne check_echo
+    jne check_rem
     INVOKE Builtin_Title, edi
+    mov eax, 1
+    ret
+
+check_rem:
+    INVOKE StrEqI, esi, ADDR sRem
+    cmp eax, 1
+    jne check_pause
+    INVOKE Builtin_SetExitCode, 0
+    mov eax, 1
+    ret
+
+check_pause:
+    INVOKE StrEqI, esi, ADDR sPause
+    cmp eax, 1
+    jne check_time
+    mov edx, OFFSET msgPause
+    INVOKE Builtin_WriteStdoutZ, edx
+    call ReadChar
+    INVOKE Builtin_WriteStdoutCRLF
+    INVOKE Builtin_SetExitCode, 0
+    mov eax, 1
+    ret
+
+check_time:
+    INVOKE StrEqI, esi, ADDR sTime
+    cmp eax, 1
+    jne check_echo
+    call Builtin_Time
     mov eax, 1
     ret
 
@@ -734,6 +811,15 @@ Builtins_IsBuiltin PROC USES esi edi, pCmd:PTR COMMAND
     cmp eax, 1
     je  yes
     INVOKE StrEqI, esi, ADDR sRen
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sRem
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sPause
+    cmp eax, 1
+    je  yes
+    INVOKE StrEqI, esi, ADDR sTime
     cmp eax, 1
     je  yes
 

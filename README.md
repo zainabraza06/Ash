@@ -2,7 +2,7 @@
 
 **A fully functional 32-bit Windows command-line interpreter written entirely in x86 Assembly Language (MASM).**
 
-Ash implements the complete REPL cycle — interactive input with history and tab-completion, a tokenizing parser, 16 built-in commands, environment variable expansion, I/O redirection, anonymous pipes, command chaining, background execution, external process launching, and `.shl` script execution — using only Win32 API calls and the Irvine32 helper library. No C runtime. No higher-level language.
+Ash implements the complete REPL cycle — interactive input with history and tab-completion, a tokenizing parser, 19 built-in commands, environment variable expansion, I/O redirection, anonymous pipes, command chaining, background execution, external process launching, and `.shl` script execution — using only Win32 API calls and the Irvine32 helper library. No C runtime. No higher-level language.
 
 > **Course:** Computer Organization & Assembly Language (COAL) — Group 11
 > **Platform:** Windows (32-bit COFF PE), MASM + Irvine32
@@ -16,7 +16,7 @@ Ash implements the complete REPL cycle — interactive input with history and ta
 | **`ash.exe`** | Executable produced by `build.bat` in the **repository root** (same folder as `build.bat`). |
 | **`include/ash.inc`** | Shared header: `COMMAND` layout, `PROTO`s, and globals (`ASH_MAIN` only in `main.asm`). |
 
-**Updates in this revision:** branding and filenames moved from AXS / `axs.exe` / `axs.inc` to Ash / `ash.exe` / `ash.inc`; non-interactive argv mode (run a `.shl` or one shell line); built-ins **`ver`** and **`title`**; safer `%VAR%` expansion against the line buffer; **`echo`** prints spaces only between words.
+**Updates in this revision:** branding and filenames moved from AXS / `axs.exe` / `axs.inc` to Ash / `ash.exe` / `ash.inc`; non-interactive argv mode (run a `.shl` or one shell line); built-ins **`ver`**, **`title`**, **`rem`**, **`pause`**, and **`time`**; safer `%VAR%` expansion against the line buffer; **`echo`** prints spaces only between words.
 
 ---
 
@@ -48,7 +48,7 @@ Ash implements the complete REPL cycle — interactive input with history and ta
 | **Command History** | Circular buffer of 10 entries; Up/Down arrow navigation |
 | **Tab Completion** | Filename auto-complete via `FindFirstFileA` / `FindNextFileA` |
 | **Parser** | Space-delimited tokenizer with quoted-string grouping; in-place 0-termination |
-| **Built-ins** | `cd dir type copy del mkdir rmdir ren echo set run cls help ver title exit` (16 commands) |
+| **Built-ins** | `cd dir type copy del mkdir rmdir ren echo set run cls help ver title rem pause time exit` (19 commands) |
 | **Environment Vars** | `%VAR%` expansion; `set NAME=VALUE`; `set` listing; backed by Win32 env block |
 | **Pipes** | `cmd1 | cmd2 | cmd3` — anonymous pipes between built-ins and/or external programs |
 | **Redirection** | `>` (overwrite), `>>` (append), `<` (input) |
@@ -68,7 +68,7 @@ ash/
 │   ├── main.asm        Entry point — initialization, REPL loop, argv handling
 │   ├── utils.asm       String utilities (StrLen, StrEqI, StrToLowerInPlace, …)
 │   ├── parser.asm      Tokenizer — quote-aware, in-place 0-termination
-│   ├── builtins.asm    16 built-in command implementations
+│   ├── builtins.asm    19 built-in command implementations
 │   ├── env.asm         %VAR% expansion, set/list environment variables
 │   ├── history.asm     Circular command-history buffer (10 slots)
 │   ├── console.asm     Interactive line editor — backspace, arrows, tab
@@ -245,6 +245,9 @@ Pipe creation uses `CreatePipe`; the write end is passed to one process as stdou
 | `cls` | `cls` | Clear the console screen |
 | `ver` | `ver` | Print Windows version (`GetVersionExA`) |
 | `title` | `title <text>` | Set console window title (`SetConsoleTitleA`) |
+| `rem` | `rem [text]` | Comment — no output; exit code 0 (for scripts) |
+| `pause` | `pause` | Print prompt and wait for a key (`ReadChar` from Irvine32) |
+| `time` | `time` | Print local date and time (`GetLocalTime`, `wsprintfA`) |
 | `help` | `help` | Print command reference |
 | `exit` | `exit` | Exit the shell |
 
@@ -463,6 +466,8 @@ dir
 set
 ver
 title Ash test window
+rem this line does nothing
+time
 
 set FOO=bar
 echo %FOO%
@@ -478,6 +483,8 @@ del missing.txt || echo failure_ok
 
 run scripts\sample.shl
 ```
+
+Try **`pause`** only when you can press a key (interactive console); it blocks until a key is read.
 
 ---
 
@@ -537,7 +544,8 @@ Global state (defined in `main.asm`, exported via `ash.inc`):
 | `GetEnvironmentStringsA` / `FreeEnvironmentStringsA` | List all env vars |
 | `ExitProcess` | Terminate with exit code |
 | `GetVersionExA` | `ver` — OS version info |
-| `wsprintfA` | Format `ver` output |
+| `GetLocalTime` | `time` — system date/time |
+| `wsprintfA` | Format `ver` and `time` output |
 | `SetConsoleTitleA` | `title` — window caption |
 | `FillConsoleOutputCharacterA` | `cls` — clear screen buffer |
 | `SetConsoleCursorPosition` | `cls` — reset cursor |

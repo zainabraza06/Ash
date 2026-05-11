@@ -132,6 +132,17 @@ OSVERSIONINFOA STRUCT
   szCSDVersion        BYTE 128 DUP(?)
 OSVERSIONINFOA ENDS
 
+SYSTEMTIME STRUCT
+  wYear          WORD ?
+  wMonth         WORD ?
+  wDayOfWeek     WORD ?
+  wDay           WORD ?
+  wHour          WORD ?
+  wMinute        WORD ?
+  wSecond        WORD ?
+  wMilliseconds  WORD ?
+SYSTEMTIME ENDS
+
 ; --- Win32 API prototypes (stdcall) ---
 
 GetLastError PROTO STDCALL
@@ -191,5 +202,6 @@ GetCommandLineA PROTO STDCALL
 ExitProcess PROTO STDCALL, uExitCode:DWORD
 
 GetVersionExA PROTO STDCALL, lpVersionInformation:PTR OSVERSIONINFOA
+GetLocalTime PROTO STDCALL, lpSystemTime:PTR SYSTEMTIME
 
 wsprintfA PROTO C :PTR BYTE, :PTR BYTE, :VARARG

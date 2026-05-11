@@ -39,7 +39,7 @@
 
 ## 1. Executive Summary
 
-**Ash** is a minimal x86 shell for Windows: a 32-bit command-line interpreter written entirely in x86 Assembly Language using the MASM assembler and the Irvine32 library. The project delivers a complete, usable shell with interactive editing, command history, tab completion, 16 built-in commands, environment variable expansion, I/O redirection, anonymous pipes, conditional command chaining, background execution, external process launching, and `.shl` script file support.
+**Ash** is a minimal x86 shell for Windows: a 32-bit command-line interpreter written entirely in x86 Assembly Language using the MASM assembler and the Irvine32 library. The project delivers a complete, usable shell with interactive editing, command history, tab completion, 19 built-in commands, environment variable expansion, I/O redirection, anonymous pipes, conditional command chaining, background execution, external process launching, and `.shl` script file support.
 
 The codebase comprises approximately 2,600 lines of assembly across 11 source modules. All functionality is achieved through direct Win32 API calls — no C runtime library, no standard I/O library, and no higher-level language layer of any kind. Every character of user input, every pipe handle, and every spawned process is managed explicitly in raw x86 registers and memory.
 
@@ -52,7 +52,7 @@ This report documents the complete technical design, each module's implementatio
 | Objective | Status |
 |---|---|
 | Implement an interactive REPL (Read-Evaluate-Print Loop) | Complete |
-| Support 16 built-in file-system and utility commands | Complete |
+| Support 19 built-in file-system and utility commands | Complete |
 | Implement `%VAR%` environment variable expansion | Complete |
 | Support I/O redirection (`>`, `>>`, `<`) | Complete |
 | Support anonymous pipes (`|`) between commands | Complete |
@@ -258,9 +258,9 @@ for each byte in buffer:
 
 The parser caps at `MAX_TOKENS` (32) to prevent buffer overflow in the `argv` array.
 
-### 4.4 `builtins.asm` — Built-in Commands (635 lines)
+### 4.4 `builtins.asm` — Built-in Commands (~835 lines)
 
-**Dispatch mechanism:** `Builtins_TryExecute` calls `StrEqI` on `argv[0]` against a table of command-name strings. The first match jumps to the corresponding handler procedure. Returns 1 if matched, 0 if not a built-in.
+**Dispatch mechanism:** `Builtins_TryExecute` calls `StrEqI` on `argv[0]` against a chain of command-name string comparisons. The first match jumps to the corresponding handler procedure. Returns 1 if matched, 0 if not a built-in.
 
 **Stdout abstraction:** All output in built-in commands goes through two wrapper procedures:
 
@@ -287,6 +287,12 @@ dir_done:
 **`type` implementation:** Opens the file with `CreateFileA`, then reads in a 512-byte loop with `ReadFile`, writing each chunk to stdout with `Builtin_WriteStdoutBuf`. This correctly handles files larger than any single buffer.
 
 **`cls` implementation:** Uses `GetConsoleScreenBufferInfo` to determine the screen dimensions, then `FillConsoleOutputCharacterA` to overwrite the entire buffer with spaces, followed by `SetConsoleCursorPosition` to move the cursor back to (0,0).
+
+**Additional built-ins:**
+
+- **`rem`** — Matches `argv[0]` case-insensitively; ignores the remainder of the line and sets exit code 0 (useful for annotating `.shl` scripts without `#` comments).
+- **`pause`** — Writes `Press any key to continue...` via `Builtin_WriteStdoutZ`, then calls Irvine32 **`ReadChar`** (blocks until any key unless stdin is redirected).
+- **`time`** — Calls **`GetLocalTime`** into a `SYSTEMTIME` local, formats **`YYYY-MM-DD HH:MM:SS`** with **`wsprintfA`**, and prints via `Builtin_WriteStdoutZ`.
 
 ### 4.5 `env.asm` — Environment Variable Engine (244 lines)
 
@@ -552,7 +558,7 @@ All Win32 functions use the `stdcall` calling convention: arguments pushed right
 
 ### 6.2 `win32_min.inc` — Minimal API Declarations
 
-Rather than including the full Windows SDK headers (which are not available in a pure MASM environment), the project provides `include/win32_min.inc` with just the constants, structure definitions, and `PROTO` declarations needed by Ash. This keeps the include chain clean and avoids conflicts with Irvine32's own declarations.
+Rather than including the full Windows SDK headers (which are not available in a pure MASM environment), the project provides `include/win32_min.inc` with just the constants, structure definitions, and `PROTO` declarations needed by Ash. This keeps the include chain clean and avoids conflicts with Irvine32's own declarations. Declarations include **`OSVERSIONINFOA`** / **`GetVersionExA`** (**`ver`**), **`SYSTEMTIME`** / **`GetLocalTime`** (**`time`**), **`SetConsoleTitleA`** (**`title`**), **`GetCommandLineA`** / **`ExitProcess`** (argv batch mode / clean exit), and the usual process/file APIs.
 
 Key constants defined:
 
@@ -670,7 +676,7 @@ The batch script changes to the repo root, then:
      "<IRVINE_LIB>\Irvine32.lib" kernel32.lib user32.lib
    ```
 
-   **`wsprintfA`** (used by **`ver`**) is resolved via **`user32.lib`**.
+   **`wsprintfA`** (used by **`ver`** and **`time`**) is resolved via **`user32.lib`**.
 
 6. **Success:** prints **`[Ash] OK: ash.exe`**. Failures print **`[Ash] ERROR:`** with hints for missing assembler, Irvine, or linker.
 
@@ -703,6 +709,9 @@ Each feature category was tested against expected output:
 | `help` | Prints command reference | Yes |
 | `ver` | Prints Windows version string (`Ash: Windows …`) | Yes |
 | `title MyShell` | Sets console window title | Yes |
+| `rem comment text` | No output; exit code 0 | Yes |
+| `time` | Prints local date/time (`Current local time: …`) | Yes |
+| `pause` | Prompts until key press (manual / interactive) | Yes |
 | `echo Hello World` | Prints `Hello World` | Yes |
 | `cd \` | Changes to root; prompt updates | Yes |
 | `dir` | Lists files in CWD | Yes |
@@ -810,7 +819,7 @@ Each feature category was tested against expected output:
 | Source modules | 11 `.asm` files |
 | Include files | 2 (`ash.inc`, `win32_min.inc`) |
 | Total lines of code | ~2,600 |
-| Built-in commands | 14 |
+| Built-in commands | 19 |
 | Shell operators | 7 (`|` `>` `>>` `<` `&&` `||` `&`) |
 | Win32 API functions called | 30+ |
 | History buffer capacity | 10 commands × 512 bytes |
@@ -823,7 +832,7 @@ Each feature category was tested against expected output:
 | Module | Lines | Complexity |
 |---|---|---|
 | `pipeline.asm` | 812 | High — operator parsing, pipe management, handle redirection |
-| `builtins.asm` | 635 | Medium-High — 14 command implementations |
+| `builtins.asm` | ~835 | Medium-High — 19 command implementations |
 | `console.asm` | 320 | Medium — key-by-key editing, cursor management |
 | `env.asm` | 244 | Medium — string scanning, API calls |
 | `utils.asm` | 221 | Low-Medium — pure string operations |
@@ -869,7 +878,7 @@ Each feature category was tested against expected output:
 | Member | Module(s) | Specific Work |
 |---|---|---|
 | **Zainab Raza Malik** | `main.asm`, `parser.asm`, `dispatch.asm` | Main REPL loop design, argv handling, tokenizer state machine, quote handling, unified dispatch layer, `ash.inc` / `win32_min.inc` architecture |
-| **Eiman Zahra** | `builtins.asm` | All 16 built-in command implementations (`cd`, `dir`, `type`, `copy`, `del`, `mkdir`, `rmdir`, `ren`, `echo`, `set`, `run`, `cls`, `ver`, `title`, `help`, `exit`); `Builtin_WriteStdoutZ` stdout abstraction |
+| **Eiman Zahra** | `builtins.asm` | Built-in dispatch and 19 commands including `ver`, `title`, `rem`, `pause`, `time`; `Builtin_WriteStdoutZ` stdout abstraction |
 | **Saliha Waqas** | `pipeline.asm`, `env.asm` | Complete pipe, redirection, and chaining implementation; `%VAR%` expansion engine; `SetStdHandle`-based built-in redirection technique |
 | **Fatima Ahmed** | `external.asm`, `script.asm`, `history.asm`, `console.asm` | `CreateProcess` launcher, `.shl` script reader, ring-buffer history, interactive line editor with Up/Down/Tab, build system (`build.bat`), integration testing |
 
