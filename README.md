@@ -18,6 +18,8 @@ Ash implements the complete REPL cycle — interactive input with history and ta
 
 **Updates in this revision:** branding and filenames moved from AXS / `axs.exe` / `axs.inc` to Ash / `ash.exe` / `ash.inc`; non-interactive argv mode (run a `.shl` or one shell line); built-ins **`ver`**, **`title`**, **`rem`**, **`pause`**, and **`time`**; safer `%VAR%` expansion against the line buffer; **`echo`** prints spaces only between words.
 
+**Pipeline / I/O:** output append (`>>`) uses `OPEN_ALWAYS` plus seek-to-end; redirected file handles are marked inheritable so external programs receive working stdio; **cmd-style single `&`** splits commands and runs both sides regardless of exit code (distinct from **`&&`** / **`||`**); **`del`** reports *Could not find …* / *Access denied* for common `DeleteFileA` failures instead of a generic *Error.*
+
 ---
 
 ## Table of Contents
@@ -36,7 +38,6 @@ Ash implements the complete REPL cycle — interactive input with history and ta
 12. [Quick Test Checklist](#quick-test-checklist)
 13. [Data Structures & Constants](#data-structures--constants)
 14. [Win32 API Surface](#win32-api-surface)
-15. [Team](#team)
 
 ---
 
@@ -52,8 +53,8 @@ Ash implements the complete REPL cycle — interactive input with history and ta
 | **Environment Vars** | `%VAR%` expansion; `set NAME=VALUE`; `set` listing; backed by Win32 env block |
 | **Pipes** | `cmd1 | cmd2 | cmd3` — anonymous pipes between built-ins and/or external programs |
 | **Redirection** | `>` (overwrite), `>>` (append), `<` (input) |
-| **Chaining** | `&&` (run-on-success), `||` (run-on-failure) |
-| **Background** | Trailing `&` — launch without waiting |
+| **Chaining** | `&` (run both sides, cmd-style), `&&` (right only if left exit code 0), `||` (right only if left failed) |
+| **Background** | Trailing `&` on a segment — launch without waiting (parsed after `|` / redirection segments) |
 | **External Programs** | `CreateProcessA`-based launch of any `.exe` / `.com` / `.bat` |
 | **Script Files** | `.shl` batch files executed line-by-line with full shell semantics |
 | **Non-interactive mode** | Pass a `.shl` path or an inline command as argv; process exits when done |
@@ -73,7 +74,7 @@ ash/
 │   ├── history.asm     Circular command-history buffer (10 slots)
 │   ├── console.asm     Interactive line editor — backspace, arrows, tab
 │   ├── dispatch.asm    Shell_ExecuteLine — unified execution entry point
-│   ├── pipeline.asm    Pipes, redirections, chaining, background (| > >> < && || &)
+│   ├── pipeline.asm    Pipes, redirections, chaining, background (| > >> < & && ||)
 │   ├── external.asm    CreateProcess-based external program launcher
 │   └── script.asm      .shl script file reader / executor
 ├── include/
@@ -122,7 +123,7 @@ ash/
                     │  found   │          │                     │
               segments split  │  Builtins_TryExecute   External_Execute
               on | > >> <     │    (builtins.asm)       (external.asm)
-              && || &         │
+              & && ||         │
                     │         │
               Pipe_SpawnExternal / Pipe_RunBuiltinWithHandles
               (handle inheritance, CreatePipe, SetStdHandle)
@@ -133,11 +134,12 @@ ash/
 1. `Console_ReadLine` gathers a line character-by-character, handling editing keys.
 2. The line is pushed to the history ring buffer.
 3. `Shell_ExecuteLine` first expands any `%VAR%` tokens.
-4. If the line contains `|`, `>`, `>>`, `<`, `&&`, `||`, or `&`, `Pipeline_TryExecute` takes over:
-   - Splits the line into *segments* separated by operators.
-   - Allocates anonymous pipes between adjacent segments.
+4. If the line contains `|`, `>`, `>>`, `<`, `&`, `&&`, or `||`, `Pipeline_TryExecute` takes over:
+   - Splits the line into *segments* separated by operators (`&&` and `||` take precedence over a single `&` when scanning).
+   - A single `&` means “always run the next segment” (like **cmd**). `&&` / `||` short-circuit based on the previous segment’s exit code.
+   - Allocates anonymous pipes between adjacent segments when `|` is used.
    - For each segment: if it is a built-in, calls `Pipe_RunBuiltinWithHandles` (which temporarily redirects `SetStdHandle` before calling the built-in in-process); otherwise calls `Pipe_SpawnExternal` (which passes inherited handles to `CreateProcessA`).
-   - Evaluates `&&`/`||` by checking the last exit code before proceeding.
+   - A **trailing** `&` on a segment still requests background execution (no wait) for that segment’s child process(es).
 5. If no operators are found, the line is tokenized by `Parser_ParseLine`, tried as a built-in, and finally attempted as an external program.
 
 ---
@@ -204,7 +206,7 @@ ash/
 2. `Pipeline_TryExecute` — returns handled=1 if any operator was found.
 3. Otherwise: `Parser_ParseLine` → `Builtins_TryExecute` → `External_Execute`.
 
-### `pipeline.asm` — Operators (812 lines)
+### `pipeline.asm` — Operators (~700 lines)
 
 The most complex module. Key procedures:
 
@@ -235,7 +237,7 @@ Pipe creation uses `CreatePipe`; the write end is passed to one process as stdou
 | `dir` | `dir [pattern]` | List directory entries (default `*.*`) |
 | `type` | `type <file>` | Print file contents to stdout |
 | `copy` | `copy <src> <dest>` | Copy file (`CopyFileA`) |
-| `del` | `del <file>` | Delete file (`DeleteFileA`) |
+| `del` | `del <file>` | Delete file (`DeleteFileA`); on failure prints *Could not find …*, *Access denied*, or a generic *Error.* |
 | `mkdir` | `mkdir <dir>` | Create directory (`CreateDirectoryA`) |
 | `rmdir` | `rmdir <dir>` | Remove directory (`RemoveDirectoryA`) |
 | `ren` | `ren <old> <new>` | Rename / move file (`MoveFileA`) |
@@ -264,12 +266,16 @@ dir | sort
 
 Chains commands so stdout of the left becomes stdin of the right. Both built-ins and external programs work as producer or consumer.
 
+**Note:** Built-ins such as **`echo`** only print their arguments; they do **not** read stdin, so `dir | echo done` prints `done` from the argument list, not directory text. Use a program that reads the pipe (e.g. **`findstr`**, **`more`**) as the right-hand command when you need to consume pipe input.
+
 ### Output Redirection `>` and `>>`
 
 ```
 dir > listing.txt        # overwrite
 echo new line >> log.txt # append
 ```
+
+Overwrite uses `CREATE_ALWAYS`. Append opens with `OPEN_ALWAYS`, seeks to end-of-file, then writes (prior bytes are preserved). Redirected file handles are marked inheritable so child processes can use them as stdin/stdout.
 
 ### Input Redirection `<`
 
@@ -287,13 +293,22 @@ compile.bat || echo Build FAILED
 `&&` runs the right side only if the left exits with code 0.
 `||` runs the right side only if the left exits with a non-zero code.
 
-### Background Execution `&`
+### Unconditional chain `&` (cmd-style)
+
+```
+echo hi & echo there
+build.bat & echo ran_build_script
+```
+
+A **single** `&` separates two commands and **always** runs the right side, even if the left failed (unlike `&&` / `||`). This matches common **cmd** behavior. **`&&`** is recognized first, so `a && b` is never parsed as `a &` + `&b`.
+
+### Background execution (trailing `&`)
 
 ```
 notepad &
 ```
 
-Launches the process and returns to the prompt immediately (no `WaitForSingleObject`).
+When `&` is **only** at the **end** of a pipeline segment (after trimming spaces), that segment’s external process is launched **without** waiting (`WaitForSingleObject` is skipped). Mid-line `echo a & echo b` uses the **chain** meaning above, not background.
 
 ---
 
@@ -334,7 +349,7 @@ ash.exe myscript.shl
 ```
 
 - Lines beginning with `#` are comments.
-- All operators (`|`, `>`, `>>`, `<`, `&&`, `||`, `&`) work inside scripts.
+- All operators (`|`, `>`, `>>`, `<`, `&`, `&&`, `||`, and trailing background `&`) work inside scripts.
 - `exit` terminates the script.
 
 ---
@@ -478,6 +493,8 @@ type out.txt
 
 type out.txt | findstr hello
 
+echo hi & echo there
+
 del missing.txt && echo should_not_print
 del missing.txt || echo failure_ok
 
@@ -537,6 +554,9 @@ Global state (defined in `main.asm`, exported via `ash.inc`):
 | `WaitForSingleObject` | Wait for process to finish |
 | `GetExitCodeProcess` | Retrieve exit code |
 | `CloseHandle` | Release kernel object handles |
+| `SetHandleInformation` | Mark redirected file handles inheritable for `CreateProcessA` |
+| `SetFilePointer` | Seek to end for `>>` append |
+| `GetLastError` | Map `del` failures to user-visible messages |
 | `CreatePipe` | Create anonymous pipe for `|` |
 | `GetStdHandle` / `SetStdHandle` | Save and redirect stdout/stdin/stderr |
 | `ReadConsoleInput` | Line editor — key events (Up/Down arrows, etc.) |
