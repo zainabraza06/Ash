@@ -637,33 +637,54 @@ The completion algorithm handles the common case of completing a filename in the
 
 ## 8. Build System
 
-### 8.1 `build\build.bat`
+### 8.1 Identity & outputs
 
-The build script (147 lines) handles the following automatically:
+The shipped executable is **`ash.exe`** at the **repository root**. Shared declarations live in **`include/ash.inc`**; `main.asm` defines **`ASH_MAIN EQU 1`** so globals (`gLineBuf`, `gCmd`, etc.) are **`PUBLIC`** there and **`EXTERN`** elsewhere — the old **`AXS_MAIN`** / **`axs.inc`** names were retired when the project was rebranded **Ash**.
 
-1. **Locate `ml.exe`:** Checks `PATH` first, then searches common VS 2022 Build Tools paths, and finally uses `vswhere.exe` to find any VS installation and calls `vcvarsall.bat x86` to set up the environment.
+### 8.2 `build\build.bat`
 
-2. **Locate Irvine32:** Checks the `IRVINE` environment variable. If not set, searches common installation paths (`C:\Irvine`, `%USERPROFILE%\Irvine`, etc.).
+The batch script changes to the repo root, then:
 
-3. **Assemble 11 modules:**
+1. **`ml.exe`:** Must be on `PATH`. If missing, the script prepends `C:\Masm615` when present; otherwise the user must open **x86 Native Tools Command Prompt for VS** or fix `PATH`.
+
+2. **Irvine32:** Uses **`IRVINE`** if set; otherwise tries common paths (`C:\Irvine`, `C:\Masm615`, user `Documents\Irvine`, …). Resolves **`IRVINE_INC`** / **`IRVINE_LIB`** when Irvine lives under `INCLUDE\` and `LIB\`.
+
+3. **`link.exe` (MSVC):** Must not be the obsolete 16-bit MASM615 linker. If `link.exe` is missing from `PATH`, the script calls **`vswhere.exe`** and **`vcvarsall.bat x86`** so the MSVC **x86** linker is available.
+
+4. **Assemble** eleven modules into **`.obj` files in the repo root** (not under `build\`):
+
    ```
-   ml /c /coff /I"%IRVINE%" /Fo build\ src\utils.asm
-   ml /c /coff /I"%IRVINE%" /Fo build\ src\parser.asm
-   ... (11 invocations)
-   ```
-   `/c` = compile only (no link), `/coff` = produce COFF object files (required for Win32 PE).
-
-4. **Link:**
-   ```
-   link /SUBSYSTEM:CONSOLE /OUT:ash.exe build\*.obj
-        kernel32.lib user32.lib "%IRVINE%\Irvine32.lib"
+   ml /nologo /c /coff /Zi /W3 /I "<IRVINE_INC>" /I include src\main.asm
+   ml ... src\utils.asm
+   ... (parser, builtins, env, history, console, dispatch, pipeline, script, external)
    ```
 
-5. **Report:** Prints `Build succeeded — ash.exe` or the MASM/link error output.
+   Flags: **`/c`** compile only, **`/coff`** 32-bit COFF objects for Win32 linking.
 
-### 8.2 Object File Dependencies
+5. **Link** into **`ash.exe`**:
 
-All 11 `.obj` files must be linked together. The linker resolves cross-module references (e.g., `main.asm` calling `Console_ReadLine` from `console.asm`) via the `EXTERN` / `PUBLIC` declarations in `ash.inc`.
+   ```
+   link /nologo /SUBSYSTEM:CONSOLE /DEBUG /OUT:ash.exe ^
+     main.obj utils.obj parser.obj builtins.obj env.obj history.obj console.obj ^
+     dispatch.obj pipeline.obj script.obj external.obj ^
+     "<IRVINE_LIB>\Irvine32.lib" kernel32.lib user32.lib
+   ```
+
+   **`wsprintfA`** (used by **`ver`**) is resolved via **`user32.lib`**.
+
+6. **Success:** prints **`[Ash] OK: ash.exe`**. Failures print **`[Ash] ERROR:`** with hints for missing assembler, Irvine, or linker.
+
+### 8.3 How to run after building
+
+1. Open **cmd** or PowerShell and **`cd`** to the repo root (next to **`ash.exe`**).
+2. **Interactive:** run **`ash.exe`** — REPL with banner and directory prompt.
+3. **Script:** **`ash.exe scripts\sample.shl`** — executes lines from the script and exits.
+4. **One-shot:** **`ash.exe echo hello`** — treats everything after the executable name as one shell line, then exits.
+5. If the only argument is a path ending in **`.shl`**, that script is run via the script runner (non-interactive).
+
+### 8.4 Object file dependencies
+
+All eleven `.obj` files in the repo root must be linked together. The linker resolves cross-module references (e.g., `main.asm` calling `Console_ReadLine` from `console.asm`) via the `EXTERN` / `PUBLIC` declarations in **`ash.inc`**.
 
 The `COMMAND` struct and global variables (`gLineBuf`, `gCmd`, `gShouldExit`, `gLastExitCode`) are declared `PUBLIC` in `main.asm` (guarded by `ASH_MAIN EQU 1`) and `EXTERN` in all other modules (via `ash.inc`). This standard MASM pattern avoids duplicate symbol errors.
 
@@ -680,6 +701,8 @@ Each feature category was tested against expected output:
 | Test | Expected Result | Pass |
 |---|---|---|
 | `help` | Prints command reference | Yes |
+| `ver` | Prints Windows version string (`Ash: Windows …`) | Yes |
+| `title MyShell` | Sets console window title | Yes |
 | `echo Hello World` | Prints `Hello World` | Yes |
 | `cd \` | Changes to root; prompt updates | Yes |
 | `dir` | Lists files in CWD | Yes |

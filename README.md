@@ -8,6 +8,16 @@ Ash implements the complete REPL cycle — interactive input with history and ta
 > **Platform:** Windows (32-bit COFF PE), MASM + Irvine32
 > **Output binary:** `ash.exe`
 
+### Naming & recent changes
+
+| Item | Description |
+|------|-------------|
+| **Ash** | Product name for this shell (“minimal x86 shell for Windows”). Older docs may still say *AXS*; behavior is the same. |
+| **`ash.exe`** | Executable produced by `build.bat` in the **repository root** (same folder as `build.bat`). |
+| **`include/ash.inc`** | Shared header: `COMMAND` layout, `PROTO`s, and globals (`ASH_MAIN` only in `main.asm`). |
+
+**Updates in this revision:** branding and filenames moved from AXS / `axs.exe` / `axs.inc` to Ash / `ash.exe` / `ash.inc`; non-interactive argv mode (run a `.shl` or one shell line); built-ins **`ver`** and **`title`**; safer `%VAR%` expansion against the line buffer; **`echo`** prints spaces only between words.
+
 ---
 
 ## Table of Contents
@@ -353,34 +363,44 @@ ash.exe myscript.shl
 | **MSVC linker (`link.exe`)** | Required — old MASM615 `LINK.EXE` will not work |
 | **Irvine32 library** | Folder must contain `Irvine32.inc` and `Irvine32.lib` |
 
-### Steps
+### Steps (build)
 
-**1.** Open **x86 Native Tools Command Prompt for VS 2022** (recommended).
+**1.** Install prerequisites (once): **Visual Studio 2022** or **Build Tools**, workload **Desktop development with C++** (so you get **`ml.exe`**, **`link.exe`**, and the Windows SDK). The Irvine32 teaching library (**`Irvine32.inc`** + **`Irvine32.lib`**) must be installed separately.
 
-> Alternatively run `build\build.bat` from any shell — the script auto-invokes `vswhere.exe` and `vcvarsall.bat`.
+**2.** Open **x86 Native Tools Command Prompt for VS** (best option), or any shell where **`link.exe`** is already on `PATH`.
 
-**2.** Set the Irvine path once per terminal session:
+> From a normal **cmd** window you can still run `build.bat`: `build\build.bat` tries **`vswhere.exe`** + **`vcvarsall.bat`** to pull in the MSVC linker when needed.
+
+**3.** Point **`IRVINE`** at the folder that contains Irvine’s headers/libs (set once per terminal). Examples:
 
 ```
 set IRVINE=C:\Irvine
 ```
 
-To find your installation:
+If Irvine lives under a MASM kit with `INCLUDE` / `LIB` subfolders:
+
+```
+set IRVINE=C:\Masm615
+```
+
+If **`IRVINE`** is unset, `build.bat` checks common paths (`C:\Irvine`, user `Documents\Irvine`, etc.). To search manually:
 
 ```powershell
 Get-ChildItem -Path $env:USERPROFILE -Filter Irvine32.inc -Recurse -ErrorAction SilentlyContinue |
     Select-Object -First 5 -ExpandProperty FullName
 ```
 
-**3.** From the repository root:
+**4.** `cd` to the **repository root** (the folder that contains `build.bat`).
+
+**5.** Run:
 
 ```
 build.bat
 ```
 
-Output: `ash.exe`
+On success you should see **`[Ash] OK: ash.exe`**. Object files (**`*.obj`**) are written to the **repository root** (not under `build\`).
 
-**4.** To clean artefacts:
+**6.** Optional — remove intermediates:
 
 ```
 clean.bat
@@ -390,29 +410,43 @@ clean.bat
 
 ## Running Ash
 
-### Interactive mode
+Follow these steps **after** `ash.exe` exists next to `build.bat`.
+
+### Step 1 — Open a shell
+
+Use **Command Prompt** or **PowerShell**, `cd` to the repository root (where **`ash.exe`** was built).
+
+### Step 2 — Choose how to run
+
+| Mode | What to run | What happens |
+|------|----------------|----------------|
+| **Interactive** | `ash.exe` | Banner and prompt; type commands; **`exit`** ends the shell (or close the window). |
+| **Script** | `ash.exe scripts\sample.shl` | Runs each non-comment line in the `.shl` file, then exits. |
+| **One line** | `ash.exe echo hello world` | Parses the rest of the command line as **one** input line (pipes/redirection allowed), then exits. |
+| **Script path only** | `ash.exe path\to\script.shl` | If the argument ends with **`.shl`**, runs that script file (same as putting `run …` inside the shell), then exits. |
+
+### Step 3 — Interactive session (example)
 
 ```
 ash.exe
 ```
+
+You should see something like:
 
 ```
 ========================================
     Ash v0.1 - Minimal x86 shell for Windows
     Type 'help' for available commands
 ========================================
-C:\Users\You> _
+C:\path\to\repo> _
 ```
 
-### Non-interactive: script file
+Then try **`help`**, **`dir`**, **`ver`**, **`title My Window`**, etc.
+
+### Step 4 — Non-interactive examples
 
 ```
 ash.exe scripts\sample.shl
-```
-
-### Non-interactive: inline command
-
-```
 ash.exe echo hello world
 ash.exe dir > listing.txt
 ```
