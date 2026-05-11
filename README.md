@@ -87,8 +87,6 @@ ash/
 │   └── clean.bat       Removes .obj / .exe / .pdb / .ilk artefacts
 ├── build.bat           Convenience wrapper -> build\build.bat
 ├── clean.bat           Convenience wrapper -> build\clean.bat
-├── docs/
-│   └── PROPOSAL.md     Original project proposal (Group 11)
 └── PROJECT_REPORT.md   Comprehensive implementation report
 ```
 
