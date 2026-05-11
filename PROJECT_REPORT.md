@@ -332,21 +332,15 @@ histCursor DWORD 0   ; browsing cursor for Up/Down navigation
 
 `History_Prev` decrements the cursor (wrapping) and copies the slot to the caller's output buffer. `History_Next` increments and copies. The cursor is reset to `histHead` on every `History_Add` so that Up/Down always starts from the most recent entry.
 
-### 4.7 `console.asm` — Interactive Line Editor (320 lines)
+### 4.7 `console.asm` — Interactive Line Editor (~400 lines)
 
-**Raw input loop:** `Console_ReadLine` uses `ReadFile` with `STD_INPUT_HANDLE` in a 1-byte-at-a-time loop rather than `ReadConsole`, allowing special key handling. Virtual keys (arrow keys, backspace) are handled by checking the key code byte.
+**Key input:** `Console_ReadLine` calls **`Console_ReadKeyLike`**, which loops on **`ReadConsoleInput`** (declared in Irvine `SmallWin.inc`) reading **`KEY_EVENT`** records until a key-down event occurs. **`wVirtualKeyCode`** is mapped to the same pseudo-scan convention the rest of the editor expects: **`VK_UP`** / **`VK_DOWN`** → `AL=0`, `AH=48h` / `50h` for history; **`VK_BACK`**, **`VK_TAB`**, **`VK_RETURN`** → ASCII in `AL`; printable keys use the low byte of **`UnicodeChar`**. This works in **cmd.exe**, **Windows Terminal**, and other hosts where Irvine **`ReadChar`** did not reliably deliver extended keys for arrows.
 
-**Backspace handling:**
+**Backspace handling:** Echoes backspace–space–backspace over the current character (Irvine **`WriteChar`**) and shortens the buffer.
 
-```asm
-; move cursor back one, write space, move back again
-INVOKE SetConsoleCursorPosition, hOut, prevPos
-INVOKE WriteConsoleA, hOut, ADDR space, 1, ...
-INVOKE SetConsoleCursorPosition, hOut, prevPos
-dec bufLen
-```
+**`Console_ClearScreen`:** Clears the active screen buffer with **`GetConsoleScreenBufferInfo`**, **`FillConsoleOutputCharacterA`** (spaces for `dwSize.X * dwSize.Y` cells), and **`SetConsoleCursorPosition`** to `(0,0)`. If the process has no console (e.g. stdout redirected), falls back to Irvine **`ClrScr`**. The **`cls`** built-in calls this instead of **`ClrScr`** alone, which often left scrollback or partial clearing on modern consoles.
 
-**History integration:** Up/Down arrow calls `History_Prev` or `History_Next`, copies the result into the input buffer, erases the current line on screen (`Console_EraseLine` writes spaces over the prompt length), and re-prints the recalled command.
+**History integration:** Up/Down arrow calls `History_Prev` or `History_Next`, copies the result into the input buffer, erases the current line on screen (`Console_EraseLine`), and re-prints the recalled command.
 
 **Tab completion (`Console_TabComplete`):**
 
@@ -558,7 +552,7 @@ All Win32 functions use the `stdcall` calling convention: arguments pushed right
 
 ### 6.2 `win32_min.inc` — Minimal API Declarations
 
-Rather than including the full Windows SDK headers (which are not available in a pure MASM environment), the project provides `include/win32_min.inc` with just the constants, structure definitions, and `PROTO` declarations needed by Ash. This keeps the include chain clean and avoids conflicts with Irvine32's own declarations. Declarations include **`OSVERSIONINFOA`** / **`GetVersionExA`** (**`ver`**), **`SYSTEMTIME`** / **`GetLocalTime`** (**`time`**), **`SetConsoleTitleA`** (**`title`**), **`GetCommandLineA`** / **`ExitProcess`** (argv batch mode / clean exit), and the usual process/file APIs.
+Rather than including the full Windows SDK headers (which are not available in a pure MASM environment), the project provides `include/win32_min.inc` with just the constants, structure definitions, and `PROTO` declarations needed by Ash. Duplicates of Irvine **`SmallWin.inc`** types (**`COORD`**, **`CONSOLE_SCREEN_BUFFER_INFO`**, **`GetConsoleScreenBufferInfo`**, **`ReadConsoleInput`**, **`GetLocalTime`**) are avoided. Ash-specific additions include **`INPUT_RECORD`** / **`KEY_EVENT_RECORD`** (for **`ReadConsoleInput`**), **`FillConsoleOutputCharacterA`** (used with **`GetConsoleScreenBufferInfo`** for **`cls`** / **`Console_ClearScreen`**), plus **`OSVERSIONINFOA`** / **`GetVersionExA`**, **`GetCommandLineA`** / **`ExitProcess`**, and the usual process/file APIs.
 
 Key constants defined:
 

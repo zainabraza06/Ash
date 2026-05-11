@@ -132,16 +132,37 @@ OSVERSIONINFOA STRUCT
   szCSDVersion        BYTE 128 DUP(?)
 OSVERSIONINFOA ENDS
 
-SYSTEMTIME STRUCT
-  wYear          WORD ?
-  wMonth         WORD ?
-  wDayOfWeek     WORD ?
-  wDay           WORD ?
-  wHour          WORD ?
-  wMinute        WORD ?
-  wSecond        WORD ?
-  wMilliseconds  WORD ?
-SYSTEMTIME ENDS
+; INPUT_RECORD / KEY_EVENT (layout matches MSVC 32-bit; Irvine SmallWin.inc has PROTO but no struct)
+KEY_EVENT_RECORD STRUCT
+  bKeyDown            DWORD ?
+  wRepeatCount        WORD ?
+  wVirtualKeyCode     WORD ?
+  wVirtualScanCode    WORD ?
+  UnicodeChar         WORD ?
+  dwControlKeyState   DWORD ?
+KEY_EVENT_RECORD ENDS
+
+INPUT_RECORD STRUCT
+  EventType           WORD ?
+  _pad                WORD ?
+  KeyEvent            KEY_EVENT_RECORD <>
+INPUT_RECORD ENDS
+
+IFNDEF VK_BACK
+VK_BACK                     EQU 08h
+ENDIF
+IFNDEF VK_TAB
+VK_TAB                      EQU 09h
+ENDIF
+IFNDEF VK_RETURN
+VK_RETURN                   EQU 0Dh
+ENDIF
+IFNDEF VK_UP
+VK_UP                       EQU 26h
+ENDIF
+IFNDEF VK_DOWN
+VK_DOWN                     EQU 28h
+ENDIF
 
 ; --- Win32 API prototypes (stdcall) ---
 
@@ -202,6 +223,8 @@ GetCommandLineA PROTO STDCALL
 ExitProcess PROTO STDCALL, uExitCode:DWORD
 
 GetVersionExA PROTO STDCALL, lpVersionInformation:PTR OSVERSIONINFOA
-GetLocalTime PROTO STDCALL, lpSystemTime:PTR SYSTEMTIME
+; GetLocalTime, GetConsoleScreenBufferInfo, SetConsoleCursorPosition, ReadConsoleInput: see Irvine SmallWin.inc
+
+FillConsoleOutputCharacterA PROTO STDCALL, hConsoleOutput:DWORD, cCharacter:BYTE, nLength:DWORD, dwWriteCoord:COORD, lpNumberOfCharsWritten:PTR DWORD
 
 wsprintfA PROTO C :PTR BYTE, :PTR BYTE, :VARARG

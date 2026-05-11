@@ -344,8 +344,8 @@ ash.exe myscript.shl
 ### History
 
 - Last 10 commands kept in a circular buffer (512 bytes per slot).
-- **Up arrow** recalls the previous command.
-- **Down arrow** moves forward in history.
+- **Up arrow** recalls the previous command; **Down arrow** moves forward.
+- The line editor uses **`ReadConsoleInput`** (virtual keys) so arrows work in **cmd**, **Windows Terminal**, and current consoles (the earlier **`ReadChar`** path often missed extended keys).
 - In-memory only; not persisted across sessions.
 
 ### Tab Completion
@@ -539,6 +539,7 @@ Global state (defined in `main.asm`, exported via `ash.inc`):
 | `CloseHandle` | Release kernel object handles |
 | `CreatePipe` | Create anonymous pipe for `|` |
 | `GetStdHandle` / `SetStdHandle` | Save and redirect stdout/stdin/stderr |
+| `ReadConsoleInput` | Line editor — key events (Up/Down arrows, etc.) |
 | `GetEnvironmentVariableA` | Read `%VAR%` expansion source |
 | `SetEnvironmentVariableA` | `set NAME=VALUE` |
 | `GetEnvironmentStringsA` / `FreeEnvironmentStringsA` | List all env vars |

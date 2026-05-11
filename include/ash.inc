@@ -69,6 +69,7 @@ Script_RunFile      PROTO, pFile:PTR BYTE
 ; console.asm
 Console_Init        PROTO
 Console_ReadLine    PROTO, pBuf:PTR BYTE, cbBuf:DWORD
+Console_ClearScreen PROTO
 
 ; dispatch.asm
 Shell_ExecuteLine   PROTO, pLine:PTR BYTE

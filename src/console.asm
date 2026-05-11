@@ -186,25 +186,108 @@ no:
 Console_TabComplete ENDP
 
 ; Console_ReadKeyLike
-; Emulates Irvine ReadKey using ReadChar:
-; - Normal keys: AL=ASCII, AH=0
-; - Extended keys: first ReadChar returns 0 or 0E0h, second returns scan code
-;   Return format matches existing logic: AL=0, AH=scan
+; Uses ReadConsoleInput so Up/Down arrows work in cmd.exe, Windows Terminal, etc.
+; Return: AL=ASCII (printable / CR / BS / Tab), AH=0
+;         or extended: AL=0, AH=48h (Up) / 50h (Down) for history navigation
 Console_ReadKeyLike PROC
-    call ReadChar
-    mov ah, 0
-    cmp al, 0
-    je  ext
-    cmp al, 0E0h
-    je  ext
+    LOCAL inp:INPUT_RECORD
+    LOCAL nRead:DWORD
+    LOCAL hIn:DWORD
+
+read_again:
+    INVOKE GetStdHandle, STD_INPUT_HANDLE
+    mov hIn, eax
+    INVOKE ReadConsoleInput, hIn, ADDR inp, 1, ADDR nRead
+    cmp eax, 0
+    je  read_again
+
+    mov ax, inp.EventType
+    cmp ax, KEY_EVENT
+    jne read_again
+
+    cmp inp.KeyEvent.bKeyDown, 0
+    je  read_again
+
+    mov ax, inp.KeyEvent.wVirtualKeyCode
+
+    cmp ax, VK_UP
+    jne rk_not_up
+    xor al, al
+    mov ah, 48h
     ret
 
-ext:
-    call ReadChar
-    mov ah, al
+rk_not_up:
+    cmp ax, VK_DOWN
+    jne rk_not_dn
     xor al, al
+    mov ah, 50h
+    ret
+
+rk_not_dn:
+    cmp ax, VK_BACK
+    jne rk_not_bs
+    mov al, 08h
+    xor ah, ah
+    ret
+
+rk_not_bs:
+    cmp ax, VK_TAB
+    jne rk_not_tab
+    mov al, 09h
+    xor ah, ah
+    ret
+
+rk_not_tab:
+    cmp ax, VK_RETURN
+    jne rk_not_ret
+    mov al, 0Dh
+    xor ah, ah
+    ret
+
+rk_not_ret:
+    mov ax, inp.KeyEvent.UnicodeChar
+    cmp ax, 20h
+    jb  read_again
+    ; BMP Latin / ASCII: use low byte
+    mov al, BYTE PTR inp.KeyEvent.UnicodeChar
+    xor ah, ah
     ret
 Console_ReadKeyLike ENDP
+
+; Clear entire screen buffer (Win32). Falls back to Irvine ClrScr if not a console.
+Console_ClearScreen PROC
+    LOCAL csbi:CONSOLE_SCREEN_BUFFER_INFO
+    LOCAL nWritten:DWORD
+    LOCAL home:COORD
+    LOCAL hOut:DWORD
+    LOCAL nCells:DWORD
+
+    INVOKE GetStdHandle, STD_OUTPUT_HANDLE
+    mov hOut, eax
+
+    INVOKE GetConsoleScreenBufferInfo, hOut, ADDR csbi
+    cmp eax, 0
+    je  cs_fallback
+
+    ; Irvine SmallWin field names: dwSize, dwCursorPos, maxWinSize
+    movzx eax, csbi.dwSize.X
+    movzx ecx, csbi.dwSize.Y
+    imul eax, ecx
+    cmp eax, 0
+    jle cs_fallback
+    mov nCells, eax
+
+    mov WORD PTR home.X, 0
+    mov WORD PTR home.Y, 0
+
+    INVOKE FillConsoleOutputCharacterA, hOut, ' ', nCells, home, ADDR nWritten
+    INVOKE SetConsoleCursorPosition, hOut, home
+    ret
+
+cs_fallback:
+    call ClrScr
+    ret
+Console_ClearScreen ENDP
 
 ; Console_ReadLine(pBuf, cbBuf) -> EAX = length
 ; Handles: Enter, Backspace, Up/Down history, Tab completion.

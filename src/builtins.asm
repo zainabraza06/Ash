@@ -526,7 +526,7 @@ check_cls:
     INVOKE StrEqI, esi, ADDR sCls
     cmp eax, 1
     jne check_ver
-    call ClrScr
+    call Console_ClearScreen
     INVOKE Builtin_SetExitCode, 0
     mov eax, 1
     ret
